@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Ledger v12.0 - Fixed 1-Month Lock</title>
+  <!-- Firebase Libraries -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --bg-color: #121311;
+      --card-bg: #1c1d1a;
+      --border-color: #2e302b;
+      --text-color: #d1d5db;
+      --accent-color: #22c55e;
+      --accent-bg: #143820;
+      --avail-color: #3b82f6;
+      --avail-bg: #1e3a8a;
+      --input-bg: #121311;
+      --button-bg: #e5e7eb;
+      --button-text: #111827;
+      --danger-color: #ef4444;
+      --calc-bg: #1b2838;
+      --calc-border: #2a475e;
+    }
+
+    .light-theme {
+      --bg-color: #f9fafb;
+      --card-bg: #ffffff;
+      --border-color: #e5e7eb;
+      --text-color: #1f2937;
+      --accent-color: #16a34a;
+      --accent-bg: #dcfce7;
+      --avail-color: #2563eb;
+      --avail-bg: #dbeafe;
+      --input-bg: #ffffff;
+      --button-bg: #1f2937;
+      --button-text: #ffffff;
+      --calc-bg: #f0f9ff;
+      --calc-border: #bae6fd;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: monospace, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-color); padding: 30px 20px; max-width: 980px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; }
+    .title { font-size: 24px; font-weight: bold; }
+    .header-right { text-align: right; }
+    .subtext { font-size: 11px; opacity: 0.7; margin-bottom: 8px; }
+    .btn-toggle { background: none; border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; cursor: pointer; font-size: 11px; margin-left: 4px; border-radius: 4px; }
+
+    /* Calculators Grid */
+    .calc-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .calc-box { background: var(--calc-bg); border: 1px solid var(--calc-border); padding: 16px; border-radius: 6px; }
+    .calc-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .calc-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+    .calc-row label { font-size: 11px; opacity: 0.8; display: block; margin-bottom: 4px; }
+    .calc-row input, .calc-row select { padding: 8px; font-size: 12px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; width: 100%; }
+
+    .alloc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 6px; text-align: center; }
+    .alloc-item { background: var(--input-bg); border: 1px solid var(--border-color); padding: 8px; border-radius: 4px; }
+    .alloc-item span { display: block; font-size: 10px; opacity: 0.7; }
+    .alloc-item strong { font-size: 11px; color: #ef4444; display: block; margin-top: 2px; }
+    .alloc-item .net-val { font-size: 11px; color: var(--accent-color); font-weight: bold; margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px; }
+
+    /* Accounts Section Cards */
+    .start-date-box { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 4px; margin-bottom: 24px; }
+    .start-date-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
+    
+    .account-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 12px; cursor: pointer; transition: 0.2s; position: relative; }
+    .account-card:hover { border-color: var(--accent-color); }
+    .account-card.active { border-color: var(--accent-color); background: var(--accent-bg); }
+    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 6px; padding-right: 40px; }
+    .acc-sub-info { font-size: 11px; opacity: 0.8; display: flex; justify-content: space-between; margin-top: 4px; }
+    
+    .btn-edit-acc { position: absolute; top: 10px; right: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color); font-size: 10px; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
+
+    /* Form Container */
+    .form-container { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 4px; margin-bottom: 24px; }
+    .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 140px; }
+    .form-group small { flex: 0.4; min-width: 90px; }
+    label { display: block; font-size: 11px; margin-bottom: 4px; opacity: 0.8; }
+    input, select { width: 100%; padding: 8px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; outline: none; font-size: 12px; }
+
+    .toggle-row { display: flex; gap: 20px; margin-bottom: 12px; font-size: 11px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .toggle-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+    .status-group { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .status-btn { flex: 1; min-width: 110px; padding: 8px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color); cursor: pointer; border-radius: 4px; text-align: center; font-size: 11px; font-weight: bold; }
+    .status-btn.active { border-color: var(--accent-color); color: var(--accent-color); background: var(--accent-bg); }
+    .status-btn.special { border-color: #f59e0b; color: #f59e0b; }
+    .status-btn.special.active { background: #451a03; color: #fbbf24; border-color: #fbbf24; }
+
+    .btn-submit { float: right; background: var(--button-bg); color: var(--button-text); border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 12px; }
+
+    /* Bottom Account Breakdown Area */
+    .bottom-breakdown { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 4px; margin-top: 24px; }
+    .breakdown-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 12px; overflow-x: auto; }
+    .b-tab { font-size: 11px; padding: 6px 12px; background: var(--input-bg); border: 1px solid var(--border-color); cursor: pointer; border-radius: 4px; white-space: nowrap; }
+    .b-tab.active { background: var(--avail-bg); color: var(--avail-color); border-color: var(--avail-color); font-weight: bold; }
+
+    .entry-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 12px; }
+    .entry-left { display: flex; gap: 10px; align-items: center; }
+    .entry-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; background: var(--border-color); }
+
+    .total-sum-box { background: var(--input-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 4px; margin-top: 16px; font-size: 13px; font-weight: bold; text-align: right; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1 class="title">Payment Ledger v12.0</h1>
+    <div class="header-right">
+      <div class="subtext">Cloud Live Sync Active ☁️</div>
+      <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
+      <button class="btn-toggle" onclick="toggleTheme()">Theme</button>
+    </div>
+  </div>
+
+  <!-- Calculators Section -->
+  <div class="calc-container">
+    <div class="calc-box">
+      <div class="calc-title"><span>💵 Fixed USD Calculator (Rate: 275)</span></div>
+      <div class="calc-row">
+        <div style="flex:1;">
+          <label>PKR Amount</label>
+          <input type="number" id="usd-pkr-input" placeholder="e.g. 50000" oninput="calcFixedUSD()">
+        </div>
+        <div style="flex:1;">
+          <label>Converted USD ($)</label>
+          <input type="text" id="usd-res-output" readonly style="color: var(--accent-color); font-weight: bold;">
+        </div>
+      </div>
+    </div>
+
+    <div class="calc-box">
+      <div class="calc-title"><span>📊 Multi-Cut & Net Calculator</span></div>
+      <div class="calc-row" style="margin-bottom: 6px;">
+        <div style="flex:1.5;">
+          <label>Total Amount</label>
+          <input type="number" id="alloc-input-amount" placeholder="e.g. 100000" oninput="calcAllocations()">
+        </div>
+        <div style="flex:1;">
+          <label>Currency</label>
+          <select id="alloc-currency-select" onchange="calcAllocations()">
+            <option value="PKR">PKR</option>
+            <option value="CNY">CNY</option>
+            <option value="USD">USD ($)</option>
+          </select>
+        </div>
+      </div>
+      <div class="alloc-grid">
+        <div class="alloc-item">
+          <span>10% Cut</span>
+          <strong id="alloc-10-cut">- PKR 0</strong>
+          <div class="net-val">Remaining: <br><span id="alloc-10-net">PKR 0</span></div>
+        </div>
+        <div class="alloc-item">
+          <span>20% Cut</span>
+          <strong id="alloc-20-cut">- PKR 0</strong>
+          <div class="net-val">Remaining: <br><span id="alloc-20-net">PKR 0</span></div>
+        </div>
+        <div class="alloc-item">
+          <span>30% Cut</span>
+          <strong id="alloc-30-cut" style="color: #ef4444;">- PKR 0</strong>
+          <div class="net-val" style="color: #38bdf8;">Net Receive: <br><span id="alloc-30-net">PKR 0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accounts Box -->
+  <div class="start-date-box">
+    <div style="font-size: 13px; font-weight: bold; color: var(--accent-color); margin-bottom: 8px;">
+      Select Account to View Details
+    </div>
+    <div class="start-date-grid" id="accounts-container"></div>
+
+    <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <input type="text" id="new-acc-name" placeholder="TikTok Account Name..." style="max-width: 180px;">
+      <input type="text" id="new-acc-dash-name" placeholder="Dashboard Name..." style="max-width: 180px;">
+      <input type="date" id="new-acc-date" style="max-width: 140px;">
+      <button onclick="addNewAccount()" style="padding: 8px 12px; background: var(--avail-bg); color: var(--avail-color); border: 1px solid var(--avail-color); border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">➕ Add Account</button>
+    </div>
+  </div>
+
+  <!-- Form Section -->
+  <div class="form-container">
+    <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px;">Add Entry</div>
+    
+    <div class="toggle-row">
+      <label class="toggle-label">
+        <input type="checkbox" id="chk-show-date" checked onchange="toggleDateVisibility()">
+        <span>Show Date Option</span>
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="chk-show-time" checked onchange="toggleTimeVisibility()">
+        <span>Show Time Option</span>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group"><label>Amount</label><input type="number" id="amount" value="0"></div>
+      <div class="form-group" style="flex: 0.4; min-width: 90px;">
+        <label>Currency</label>
+        <select id="currency">
+          <option value="PKR">PKR</option>
+          <option value="CNY">CNY</option>
+          <option value="USD">USD ($)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Account</label>
+        <select id="account-select" onchange="onAccountSelectChange()"></select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" id="grp-entry-date"><label>Date</label><input type="date" id="entry-date"></div>
+      <div class="form-group" id="grp-entry-time"><label>Time</label><input type="time" id="entry-time"></div>
+      <div class="form-group"><label>Note / Reason</label><input type="text" id="note" placeholder="Note..."></div>
+    </div>
+
+    <label>Entry Category / Status</label>
+    <div class="status-group" id="status-buttons-container"></div>
+
+    <button class="btn-submit" onclick="addEntry()">Add Entry</button>
+    <div style="clear: both;"></div>
+  </div>
+
+  <!-- Bottom Breakdown Area -->
+  <div class="bottom-breakdown">
+    <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: var(--accent-color);" id="selected-acc-heading">
+      Account Category Breakdown
+    </div>
+
+    <div class="breakdown-tabs" id="bottom-tabs-container"></div>
+
+    <div id="bottom-entries-list"></div>
+
+    <div class="total-sum-box">
+      Selected Section Total: <span id="bottom-total-val" style="color: var(--accent-color);">PKR 0</span>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDiH45wnwhmrQwcKtkcNqOhBQjrM9_ufJI",
+      authDomain: "payments-details-ae7b5.firebaseapp.com",
+      projectId: "payments-details-ae7b5",
+      storageBucket: "payments-details-ae7b5.firebasestorage.app",
+      messagingSenderId: "294924472334",
+      appId: "1:294924472334:web:2ec93ba1dae61c9bd6ec5f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let entries = [];
+    let accountsList = [];
+    let currentStatus = 'Date To Date Earning';
+    let selectedAccountIndex = 0;
+    let selectedBottomTab = 'Date To Date Earning';
+    let accountsSeeded = false;
+
+    const now = new Date();
+    document.getElementById('entry-date').valueAsDate = now;
+    document.getElementById('entry-time').value = now.toTimeString().substring(0, 5);
+
+    function cleanStr(str) {
+      return (str || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function formatNum(num) {
+      return Number(num).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    }
+
+    function getCurrencySymbol(curr) {
+      if (curr === 'PKR') return 'PKR';
+      if (curr === 'CNY') return 'CNY';
+      if (curr === 'USD') return '$';
+      return curr || 'PKR';
+    }
+
+    function formatDateDisplay(dateStr) {
+      if (!dateStr) return 'N/A';
+      const clean = dateStr.trim();
+      const p = clean.split(/[-/]/);
+      if (p.length !== 3) return dateStr;
+      
+      let year = p[0], monthIndex = parseInt(p[1], 10) - 1, day = parseInt(p[2], 10);
+      if (p[0].length !== 4) {
+        year = p[2]; day = parseInt(p[0], 10); monthIndex = parseInt(p[1], 10) - 1;
+      }
+
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      return `${day} ${months[monthIndex] || ''} ${year}`;
+    }
+
+    function formatTime12Hour(timeStr) {
+      if (!timeStr) return '';
+      const parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+      let hours = parseInt(parts[0], 10);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; 
+      const formattedHours = hours < 10 ? '0' + hours : hours;
+      return `${formattedHours}:${minutes} ${ampm}`;
+    }
+
+    function toggleDateVisibility() {
+      const show = document.getElementById('chk-show-date').checked;
+      document.getElementById('grp-entry-date').style.display = show ? 'block' : 'none';
+    }
+
+    function toggleTimeVisibility() {
+      const show = document.getElementById('chk-show-time').checked;
+      document.getElementById('grp-entry-time').style.display = show ? 'block' : 'none';
+    }
+
+    function calcFixedUSD() {
+      const pkr = parseFloat(document.getElementById('usd-pkr-input').value) || 0;
+      const usd = pkr / 275;
+      document.getElementById('usd-res-output').value = `$ ${formatNum(usd)}`;
+    }
+
+    function calcAllocations() {
+      const amt = parseFloat(document.getElementById('alloc-input-amount').value) || 0;
+      const curr = document.getElementById('alloc-currency-select').value;
+      const sym = getCurrencySymbol(curr);
+
+      const cut10 = amt * 0.10;
+      const cut20 = amt * 0.20;
+      const cut30 = amt * 0.30;
+
+      document.getElementById('alloc-10-cut').innerText = `- ${sym} ${formatNum(cut10)}`;
+      document.getElementById('alloc-20-cut').innerText = `- ${sym} ${formatNum(cut20)}`;
+      document.getElementById('alloc-30-cut').innerText = `- ${sym} ${formatNum(cut30)}`;
+
+      document.getElementById('alloc-10-net').innerText = `${sym} ${formatNum(amt - cut10)}`;
+      document.getElementById('alloc-20-net').innerText = `${sym} ${formatNum(amt - cut20)}`;
+      document.getElementById('alloc-30-net').innerText = `${sym} ${formatNum(amt - cut30)}`;
+    }
+
+    function toggleTheme() { document.body.classList.toggle('light-theme'); }
+
+    // REALTIME ACCOUNTS SYNC FROM FIREBASE
+    db.collection("accounts").onSnapshot((snapshot) => {
+      accountsList = [];
+      snapshot.forEach((doc) => {
+        accountsList.push({ docId: doc.id, ...doc.data() });
+      });
+
+      if (accountsList.length === 0 && !accountsSeeded) {
+        accountsSeeded = true;
+        const defaultAccs = [
+          { name: "Mughees Editing", dashboardName: "Mughees Admin", startDate: "2026-06-27" },
+          { name: "Itx Rummi", dashboardName: "Rummi", startDate: "2026-07-03" },
+          { name: "Mughees Editor", dashboardName: "Rummi", startDate: "2026-07-01" }
+        ];
+        defaultAccs.forEach(acc => db.collection("accounts").add(acc));
+        return;
+      }
+
+      if (selectedAccountIndex >= accountsList.length) {
+        selectedAccountIndex = Math.max(0, accountsList.length - 1);
+      }
+
+      renderAccounts();
+      renderFormStatusButtons();
+      renderBottomBreakdown();
+    });
+
+    // REALTIME PAYMENTS SYNC FROM FIREBASE
+    db.collection("payments").onSnapshot((snapshot) => {
+      entries = [];
+      snapshot.forEach((doc) => { entries.push({ docId: doc.id, ...doc.data() }); });
+      renderAccounts();
+      renderFormStatusButtons();
+      renderBottomBreakdown();
+    });
+
+    function selectAccountCard(idx) {
+      selectedAccountIndex = idx;
+      document.getElementById('account-select').selectedIndex = idx;
+      renderFormStatusButtons();
+      renderAccounts();
+      renderBottomBreakdown();
+    }
+
+    function onAccountSelectChange() {
+      const selIdx = document.getElementById('account-select').selectedIndex;
+      selectedAccountIndex = selIdx;
+      renderFormStatusButtons();
+      renderAccounts();
+      renderBottomBreakdown();
+    }
+
+    function renderFormStatusButtons() {
+      const currentAcc = accountsList[selectedAccountIndex];
+      const container = document.getElementById('status-buttons-container');
+      container.innerHTML = '';
+
+      let statuses = [];
+      if (currentAcc && cleanStr(currentAcc.name) === "mughees editing") {
+        statuses = [
+          'Binance Payment',
+          'My Payment',
+          'Date To Date Earning',
+          'Dashboard Available',
+          'Monthly Income'
+        ];
+      } else {
+        statuses = [
+          'Date To Date Earning',
+          'Dashboard Available',
+          'Monthly Income',
+          'Send Transaction'
+        ];
+      }
+
+      if (!statuses.includes(currentStatus)) {
+        currentStatus = statuses[0];
+      }
+
+      statuses.forEach(st => {
+        const btn = document.createElement('button');
+        const isSpecial = st === 'Binance Payment' || st === 'My Payment';
+        btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
+        btn.innerText = st;
+        btn.onclick = () => {
+          currentStatus = st;
+          renderFormStatusButtons();
+        };
+        container.appendChild(btn);
+      });
+
+      renderBottomTabs();
+    }
+
+    function renderBottomTabs() {
+      const currentAcc = accountsList[selectedAccountIndex];
+      const container = document.getElementById('bottom-tabs-container');
+      container.innerHTML = '';
+
+      let tabs = [];
+      if (currentAcc && cleanStr(currentAcc.name) === "mughees editing") {
+        tabs = [
+          'Binance Payment',
+          'My Payment',
+          'Date To Date Earning',
+          'Dashboard Available',
+          'Monthly Income'
+        ];
+      } else {
+        tabs = [
+          'Date To Date Earning',
+          'Dashboard Available',
+          'Monthly Income',
+          'Send Transaction'
+        ];
+      }
+
+      if (!tabs.includes(selectedBottomTab)) {
+        selectedBottomTab = tabs[0];
+      }
+
+      tabs.forEach(t => {
+        const tab = document.createElement('div');
+        tab.className = `b-tab ${t === selectedBottomTab ? 'active' : ''}`;
+        tab.innerText = t;
+        tab.onclick = () => {
+          selectedBottomTab = t;
+          renderBottomTabs();
+          renderBottomBreakdown();
+        };
+        container.appendChild(tab);
+      });
+    }
+
+    function renderAccounts() {
+      const container = document.getElementById('accounts-container');
+      const select = document.getElementById('account-select');
+      container.innerHTML = '';
+      select.innerHTML = '';
+
+      accountsList.forEach((acc, idx) => {
+        const isSelected = selectedAccountIndex === idx;
+        const card = document.createElement('div');
+        card.className = `account-card ${isSelected ? 'active' : ''}`;
+        card.onclick = () => selectAccountCard(idx);
+        card.innerHTML = `
+          <button class="btn-edit-acc" onclick="editAccount(event, ${idx})">✏️ Edit</button>
+          <h4>${acc.name}</h4>
+          <div class="acc-sub-info">
+            <span>Dashboard:</span> 
+            <strong style="color: #38bdf8;">${acc.dashboardName || 'N/A'}</strong>
+          </div>
+          <div class="acc-sub-info">
+            <span>Start Date:</span> 
+            <strong>${formatDateDisplay(acc.startDate)}</strong>
+          </div>
+        `;
+        container.appendChild(card);
+
+        const opt = document.createElement('option');
+        opt.value = acc.name; 
+        opt.innerText = `${acc.name} (${acc.dashboardName || 'No Dash Name'})`;
+        select.appendChild(opt);
+      });
+
+      select.selectedIndex = selectedAccountIndex;
+    }
+
+    function editAccount(event, idx) {
+      event.stopPropagation();
+      const currentAcc = accountsList[idx];
+      if (!currentAcc) return;
+
+      const newName = prompt("TikTok Account Name likhein:", currentAcc.name);
+      if (newName === null) return;
+
+      const newDashName = prompt("Website Dashboard Name likhein:", currentAcc.dashboardName || "");
+      if (newDashName === null) return;
+
+      const newDate = prompt("Start Date (YYYY-MM-DD) likhein:", currentAcc.startDate);
+      if (newDate === null) return;
+
+      const oldName = currentAcc.name;
+      const finalName = newName.trim() || oldName;
+      const finalDashName = newDashName.trim();
+      const finalDate = newDate.trim() || currentAcc.startDate;
+
+      db.collection("accounts").doc(currentAcc.docId).update({
+        name: finalName,
+        dashboardName: finalDashName,
+        startDate: finalDate
+      });
+
+      if (oldName !== finalName) {
+        entries.forEach(e => {
+          if (cleanStr(e.account) === cleanStr(oldName)) {
+            db.collection("payments").doc(e.docId).update({ account: finalName });
+          }
+        });
+      }
+    }
+
+    function addNewAccount() {
+      const name = document.getElementById('new-acc-name').value.trim();
+      const dashName = document.getElementById('new-acc-dash-name').value.trim();
+      const dateVal = document.getElementById('new-acc-date').value;
+
+      if (!name) { alert("Account ka naam likhein!"); return; }
+
+      db.collection("accounts").add({
+        name: name,
+        dashboardName: dashName,
+        startDate: dateVal || new Date().toISOString().slice(0, 10)
+      });
+
+      document.getElementById('new-acc-name').value = '';
+      document.getElementById('new-acc-dash-name').value = '';
+      document.getElementById('new-acc-date').value = '';
+    }
+
+    function renderBottomBreakdown() {
+      const currentAcc = accountsList[selectedAccountIndex];
+      if (!currentAcc) return;
+
+      document.getElementById('selected-acc-heading').innerText = `${currentAcc.name} — Category Breakdown`;
+
+      const container = document.getElementById('bottom-entries-list');
+      container.innerHTML = '';
+
+      const accNameClean = cleanStr(currentAcc.name);
+      const accEntries = entries.filter(e => cleanStr(e.account) === accNameClean);
+      
+      let targetStatus = selectedBottomTab;
+      const filtered = accEntries.filter(e => cleanStr(e.status) === cleanStr(targetStatus));
+
+      filtered.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      const totalsByCurr = {};
+
+      filtered.forEach(e => {
+        const curr = e.currency || 'PKR';
+        totalsByCurr[curr] = (totalsByCurr[curr] || 0) + e.amount;
+        
+        const symbol = getCurrencySymbol(curr);
+        
+        let dateTimeDisplay = '';
+        if (e.date) dateTimeDisplay += e.date + ' ';
+        if (e.time) dateTimeDisplay += formatTime12Hour(e.time);
+
+        const item = document.createElement('div');
+        item.className = 'entry-item';
+        item.innerHTML = `
+          <div class="entry-left">
+            ${dateTimeDisplay ? `<span>${dateTimeDisplay}</span>` : ''}
+            <span class="entry-badge">${e.status}</span>
+            <span>${e.note}</span>
+          </div>
+          <div>
+            <strong style="margin-right: 12px;">${symbol} ${formatNum(e.amount)}</strong>
+            <button onclick="removeEntry('${e.docId}')" style="color:var(--danger-color); background:none; border:none; cursor:pointer;">Remove</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+
+      const totalKeys = Object.keys(totalsByCurr);
+      if (totalKeys.length === 0) {
+        document.getElementById('bottom-total-val').innerText = 'PKR 0';
+      } else {
+        const totalStr = totalKeys.map(c => `${getCurrencySymbol(c)} ${formatNum(totalsByCurr[c])}`).join(' | ');
+        document.getElementById('bottom-total-val').innerText = totalStr;
+      }
+    }
+
+    // HELPER TO CALCULATE EXACT 1-MONTH CUTOFF DATE
+    function getCycleCutoffDate(startDateStr) {
+      if (!startDateStr) return null;
+      const p = startDateStr.trim().split(/[-/]/);
+      if (p.length !== 3) return null;
+      
+      let y, m, d;
+      if (p[0].length === 4) {
+        y = parseInt(p[0], 10);
+        m = parseInt(p[1], 10) - 1;
+        d = parseInt(p[2], 10);
+      } else {
+        y = parseInt(p[2], 10);
+        m = parseInt(p[0], 10) - 1;
+        d = parseInt(p[1], 10);
+      }
+
+      const startObj = new Date(y, m, d, 0, 0, 0, 0);
+      const cutoffObj = new Date(y, m + 1, d, 0, 0, 0, 0); // Exactly 1 Month Later
+
+      return { startObj, cutoffObj, startDay: d };
+    }
+
+    // CHECK LOCK STATUS FOR CURRENT ACCOUNT
+    function checkCycleLock(acc) {
+      if (!acc || !acc.startDate) return null;
+
+      const cycleDates = getCycleCutoffDate(acc.startDate);
+      if (!cycleDates) return null;
+
+      const now = new Date();
+      const accCleanName = cleanStr(acc.name);
+
+      const d2dEntries = entries.filter(e => {
+        return cleanStr(e.account) === accCleanName && cleanStr(e.status) === 'date to date earning';
+      });
+
+      // LOCK ACTIVE ONLY IF: CURRENT TIME HAS PASSED CUTOFF AND OLD ENTRIES EXIST
+      if (now.getTime() >= cycleDates.cutoffObj.getTime() && d2dEntries.length > 0) {
+        const startStr = cycleDates.startObj.toISOString().slice(0, 10);
+        const cutoffStr = cycleDates.cutoffObj.toISOString().slice(0, 10);
+        return {
+          isLocked: true,
+          startDateStr: formatDateDisplay(startStr),
+          cutoffDateStr: formatDateDisplay(cutoffStr),
+          entryCount: d2dEntries.length
+        };
+      }
+
+      return null;
+    }
+
+    // ADVANCE CYCLE IF CLEARED
+    function autoAdvanceAccountCycleIfNeeded(acc) {
+      if (!acc || !acc.startDate) return;
+      const cycleDates = getCycleCutoffDate(acc.startDate);
+      if (!cycleDates) return;
+
+      const now = new Date();
+      if (now.getTime() >= cycleDates.cutoffObj.getTime()) {
+        const startDay = cycleDates.startDay;
+        let yr = now.getFullYear();
+        let mo = now.getMonth();
+        if (now.getDate() < startDay) {
+          mo -= 1;
+          if (mo < 0) { mo = 11; yr -= 1; }
+        }
+        const daysInMo = new Date(yr, mo + 1, 0).getDate();
+        const actualDay = Math.min(startDay, daysInMo);
+        
+        const newStartStr = `${yr}-${String(mo + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
+        
+        db.collection("accounts").doc(acc.docId).update({
+          startDate: newStartStr
+        });
+      }
+    }
+
+    function addEntry() {
+      const amount = parseFloat(document.getElementById('amount').value);
+      const currency = document.getElementById('currency').value;
+      
+      const selectElem = document.getElementById('account-select');
+      const selectedIdx = selectElem ? selectElem.selectedIndex : selectedAccountIndex;
+      const currentAcc = accountsList[selectedIdx] || accountsList[selectedAccountIndex];
+
+      const showDate = document.getElementById('chk-show-date').checked;
+      const showTime = document.getElementById('chk-show-time').checked;
+
+      const dateVal = showDate ? document.getElementById('entry-date').value : '';
+      const timeVal = showTime ? document.getElementById('entry-time').value : '';
+      const note = document.getElementById('note').value;
+
+      if (!amount || amount <= 0) { alert('Sahi amount likhein!'); return; }
+
+      // CHECK LOCK FOR "Date To Date Earning"
+      if (cleanStr(currentStatus) === 'date to date earning') {
+        if (currentAcc) {
+          const lockResult = checkCycleLock(currentAcc);
+          if (lockResult && lockResult.isLocked) {
+            alert(`⛔ سائیکل مکمل ہو چکا ہے / لاک الرٹ!\n\nآپ کا 1 مہینہ (${lockResult.startDateStr} سے ${lockResult.cutoffDateStr} تک) مکمل ہو چکا ہے۔\n\nاس وقت لسٹ میں ${lockResult.entryCount} پرانی اینٹریز موجود ہیں۔\n\nنئی اینٹری ایڈ کرنے کے لیے پہلے ان اینٹریز کو "Monthly Income" میں منتقل کریں اور یہاں سے ریموو کریں۔`);
+            return; // BLOCKS ADDING UNTIL CLEARED
+          }
+
+          // Automatically advance cycle to current month if cleared and cutoff passed
+          autoAdvanceAccountCycleIfNeeded(currentAcc);
+        }
+      }
+
+      db.collection("payments").add({
+        amount, 
+        currency, 
+        account: currentAcc ? currentAcc.name : selectElem.value,
+        date: dateVal, 
+        time: timeVal,
+        note: note || '-', 
+        status: currentStatus,
+        createdAt: Date.now()
+      });
+
+      document.getElementById('amount').value = 0;
+      document.getElementById('note').value = '';
+    }
+
+    function removeEntry(docId) {
+      if(confirm("Entry delete kar dein?")) {
+        db.collection("payments").doc(docId).delete();
+      }
+    }
+
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ accounts: accountsList, entries: entries }, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `ledger_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
