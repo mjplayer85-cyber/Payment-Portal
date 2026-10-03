@@ -70,10 +70,12 @@
     .account-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 12px; cursor: pointer; transition: 0.2s; position: relative; }
     .account-card:hover { border-color: var(--accent-color); }
     .account-card.active { border-color: var(--accent-color); background: var(--accent-bg); }
-    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 6px; padding-right: 40px; }
+    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 6px; padding-right: 90px; }
     .acc-sub-info { font-size: 11px; opacity: 0.8; display: flex; justify-content: space-between; margin-top: 4px; }
     
-    .btn-edit-acc { position: absolute; top: 10px; right: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--text-color); font-size: 10px; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
+    .acc-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+    .btn-acc-action { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); font-size: 10px; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
+    .btn-acc-action.danger { color: var(--danger-color); border-color: var(--danger-color); }
 
     /* Form Container */
     .form-container { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 4px; margin-bottom: 24px; }
@@ -355,6 +357,9 @@
         accountsList.push({ docId: doc.id, ...doc.data() });
       });
 
+      // Sort accounts consistently by Start Date to prevent jumping
+      accountsList.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+
       if (accountsList.length === 0 && !accountsSeeded) {
         accountsSeeded = true;
         const defaultAccs = [
@@ -494,7 +499,10 @@
         card.className = `account-card ${isSelected ? 'active' : ''}`;
         card.onclick = () => selectAccountCard(idx);
         card.innerHTML = `
-          <button class="btn-edit-acc" onclick="editAccount(event, ${idx})">✏️ Edit</button>
+          <div class="acc-actions">
+            <button class="btn-acc-action" onclick="editAccount(event, ${idx})">✏️ Edit</button>
+            <button class="btn-acc-action danger" onclick="deleteAccount(event, ${idx})">🗑️ Delete</button>
+          </div>
           <h4>${acc.name}</h4>
           <div class="acc-sub-info">
             <span>Dashboard:</span> 
@@ -550,6 +558,20 @@
       }
     }
 
+    function deleteAccount(event, idx) {
+      event.stopPropagation();
+      const currentAcc = accountsList[idx];
+      if (!currentAcc) return;
+
+      if (confirm(`Kya aap "${currentAcc.name}" account ko delete karna chahte hain?`)) {
+        db.collection("accounts").doc(currentAcc.docId).delete().then(() => {
+          if (selectedAccountIndex >= accountsList.length - 1) {
+            selectedAccountIndex = Math.max(0, accountsList.length - 2);
+          }
+        });
+      }
+    }
+
     function addNewAccount() {
       const name = document.getElementById('new-acc-name').value.trim();
       const dashName = document.getElementById('new-acc-dash-name').value.trim();
@@ -583,7 +605,20 @@
       let targetStatus = selectedBottomTab;
       const filtered = accEntries.filter(e => cleanStr(e.status) === cleanStr(targetStatus));
 
-      filtered.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      // CHRONOLOGICAL SORTING: Sort by Date first, then Time, then Creation Timestamp
+      filtered.sort((a, b) => {
+        const dateA = a.date || '0000-00-00';
+        const dateB = b.date || '0000-00-00';
+        if (dateA !== dateB) {
+          return dateA.localeCompare(dateB);
+        }
+        const timeA = a.time || '00:00';
+        const timeB = b.time || '00:00';
+        if (timeA !== timeB) {
+          return timeA.localeCompare(timeB);
+        }
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
 
       const totalsByCurr = {};
 
@@ -594,14 +629,14 @@
         const symbol = getCurrencySymbol(curr);
         
         let dateTimeDisplay = '';
-        if (e.date) dateTimeDisplay += e.date + ' ';
+        if (e.date) dateTimeDisplay += formatDateDisplay(e.date) + ' ';
         if (e.time) dateTimeDisplay += formatTime12Hour(e.time);
 
         const item = document.createElement('div');
         item.className = 'entry-item';
         item.innerHTML = `
           <div class="entry-left">
-            ${dateTimeDisplay ? `<span>${dateTimeDisplay}</span>` : ''}
+            ${dateTimeDisplay ? `<span style="color:#38bdf8; font-weight:bold;">${dateTimeDisplay}</span>` : ''}
             <span class="entry-badge">${e.status}</span>
             <span>${e.note}</span>
           </div>
