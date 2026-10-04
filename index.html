@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.0 - Sequential Accounts</title>
+  <title>Payment Ledger v12.0 - Dashboard & Available Tabs</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -115,7 +115,7 @@
   <div class="header">
     <h1 class="title">Payment Ledger v12.0</h1>
     <div class="header-right">
-      <div class="subtext">Cloud Live Sync Active ☁️️</div>
+      <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
       <button class="btn-toggle" onclick="toggleTheme()">Theme</button>
     </div>
@@ -421,13 +421,15 @@
           'Binance Payment',
           'My Payment',
           'Date To Date Earning',
-          'Dashboard Available',
+          'Dashboard',
+          'Available',
           'Monthly Income'
         ];
       } else {
         statuses = [
           'Date To Date Earning',
-          'Dashboard Available',
+          'Dashboard',
+          'Available',
           'Monthly Income',
           'Send Transaction'
         ];
@@ -463,13 +465,15 @@
           'Binance Payment',
           'My Payment',
           'Date To Date Earning',
-          'Dashboard Available',
+          'Dashboard',
+          'Available',
           'Monthly Income'
         ];
       } else {
         tabs = [
           'Date To Date Earning',
-          'Dashboard Available',
+          'Dashboard',
+          'Available',
           'Monthly Income',
           'Send Transaction'
         ];
@@ -531,13 +535,11 @@
       select.selectedIndex = selectedAccountIndex;
     }
 
-    // FUNCTION TO MOVE ACCOUNTS UP AND DOWN
     function moveAccount(event, idx, direction) {
       event.stopPropagation();
       const targetIdx = idx + direction;
       if (targetIdx < 0 || targetIdx >= accountsList.length) return;
 
-      // Normalize orders for clean swapping
       accountsList.forEach((acc, i) => { acc._calcOrder = i; });
 
       const currentAcc = accountsList[idx];
@@ -637,7 +639,6 @@
       let targetStatus = selectedBottomTab;
       const filtered = accEntries.filter(e => cleanStr(e.status) === cleanStr(targetStatus));
 
-      // CHRONOLOGICAL SORTING: Sort by Date first, then Time, then Creation Timestamp
       filtered.sort((a, b) => {
         const dateA = a.date || '0000-00-00';
         const dateB = b.date || '0000-00-00';
@@ -689,7 +690,6 @@
       }
     }
 
-    // HELPER TO CALCULATE EXACT 1-MONTH CUTOFF DATE
     function getCycleCutoffDate(startDateStr) {
       if (!startDateStr) return null;
       const p = startDateStr.trim().split(/[-/]/);
@@ -707,12 +707,11 @@
       }
 
       const startObj = new Date(y, m, d, 0, 0, 0, 0);
-      const cutoffObj = new Date(y, m + 1, d, 0, 0, 0, 0); // Exactly 1 Month Later
+      const cutoffObj = new Date(y, m + 1, d, 0, 0, 0, 0);
 
       return { startObj, cutoffObj, startDay: d };
     }
 
-    // CHECK LOCK STATUS FOR CURRENT ACCOUNT
     function checkCycleLock(acc) {
       if (!acc || !acc.startDate) return null;
 
@@ -757,7 +756,6 @@
 
       if (!amount || amount <= 0) { alert('Sahi amount likhein!'); return; }
 
-      // CHECK LOCK FOR "Date To Date Earning"
       if (cleanStr(currentStatus) === 'date to date earning') {
         if (currentAcc) {
           const lockResult = checkCycleLock(currentAcc);
