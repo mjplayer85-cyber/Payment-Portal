@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.0 - Fixed 1-Month Lock</title>
+  <title>Payment Ledger v12.0 - Sequential Accounts</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -70,11 +70,11 @@
     .account-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 12px; cursor: pointer; transition: 0.2s; position: relative; }
     .account-card:hover { border-color: var(--accent-color); }
     .account-card.active { border-color: var(--accent-color); background: var(--accent-bg); }
-    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 6px; padding-right: 90px; }
+    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 6px; padding-right: 120px; }
     .acc-sub-info { font-size: 11px; opacity: 0.8; display: flex; justify-content: space-between; margin-top: 4px; }
     
-    .acc-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
-    .btn-acc-action { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); font-size: 10px; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
+    .acc-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
+    .btn-acc-action { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); font-size: 10px; padding: 2px 5px; border-radius: 3px; cursor: pointer; }
     .btn-acc-action.danger { color: var(--danger-color); border-color: var(--danger-color); }
 
     /* Form Container */
@@ -115,7 +115,7 @@
   <div class="header">
     <h1 class="title">Payment Ledger v12.0</h1>
     <div class="header-right">
-      <div class="subtext">Cloud Live Sync Active ☁️</div>
+      <div class="subtext">Cloud Live Sync Active ☁️️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
       <button class="btn-toggle" onclick="toggleTheme()">Theme</button>
     </div>
@@ -350,22 +350,27 @@
 
     function toggleTheme() { document.body.classList.toggle('light-theme'); }
 
-    // REALTIME ACCOUNTS SYNC FROM FIREBASE
+    // REALTIME ACCOUNTS SYNC FROM FIREBASE (ORDER BASED)
     db.collection("accounts").onSnapshot((snapshot) => {
       accountsList = [];
       snapshot.forEach((doc) => {
         accountsList.push({ docId: doc.id, ...doc.data() });
       });
 
-      // Sort accounts consistently by Start Date to prevent jumping
-      accountsList.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+      // Sort accounts strictly by custom order/sequence
+      accountsList.sort((a, b) => {
+        const orderA = a.order !== undefined ? a.order : 0;
+        const orderB = b.order !== undefined ? b.order : 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
 
       if (accountsList.length === 0 && !accountsSeeded) {
         accountsSeeded = true;
         const defaultAccs = [
-          { name: "Mughees Editing", dashboardName: "Mughees Admin", startDate: "2026-06-27" },
-          { name: "Itx Rummi", dashboardName: "Rummi", startDate: "2026-07-03" },
-          { name: "Mughees Editor", dashboardName: "Rummi", startDate: "2026-07-01" }
+          { name: "Mughees Editing", dashboardName: "Mughees Admin", startDate: "2026-06-27", order: 1, createdAt: 1 },
+          { name: "Itx Rummi", dashboardName: "Rummi", startDate: "2026-07-03", order: 2, createdAt: 2 },
+          { name: "Mughees Editor", dashboardName: "Rummi", startDate: "2026-07-01", order: 3, createdAt: 3 }
         ];
         defaultAccs.forEach(acc => db.collection("accounts").add(acc));
         return;
@@ -500,8 +505,10 @@
         card.onclick = () => selectAccountCard(idx);
         card.innerHTML = `
           <div class="acc-actions">
-            <button class="btn-acc-action" onclick="editAccount(event, ${idx})">✏️ Edit</button>
-            <button class="btn-acc-action danger" onclick="deleteAccount(event, ${idx})">🗑️ Delete</button>
+            <button class="btn-acc-action" onclick="moveAccount(event, ${idx}, -1)" title="Move Up">⬆️</button>
+            <button class="btn-acc-action" onclick="moveAccount(event, ${idx}, 1)" title="Move Down">⬇️</button>
+            <button class="btn-acc-action" onclick="editAccount(event, ${idx})">✏️</button>
+            <button class="btn-acc-action danger" onclick="deleteAccount(event, ${idx})">🗑️</button>
           </div>
           <h4>${acc.name}</h4>
           <div class="acc-sub-info">
@@ -522,6 +529,25 @@
       });
 
       select.selectedIndex = selectedAccountIndex;
+    }
+
+    // FUNCTION TO MOVE ACCOUNTS UP AND DOWN
+    function moveAccount(event, idx, direction) {
+      event.stopPropagation();
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= accountsList.length) return;
+
+      // Normalize orders for clean swapping
+      accountsList.forEach((acc, i) => { acc._calcOrder = i; });
+
+      const currentAcc = accountsList[idx];
+      const targetAcc = accountsList[targetIdx];
+
+      const batch = db.batch();
+      batch.update(db.collection("accounts").doc(currentAcc.docId), { order: targetAcc._calcOrder });
+      batch.update(db.collection("accounts").doc(targetAcc.docId), { order: currentAcc._calcOrder });
+
+      batch.commit();
     }
 
     function editAccount(event, idx) {
@@ -579,10 +605,16 @@
 
       if (!name) { alert("Account ka naam likhein!"); return; }
 
+      const nextOrder = accountsList.length > 0 
+        ? Math.max(...accountsList.map((a, i) => (a.order !== undefined ? a.order : i))) + 1 
+        : 1;
+
       db.collection("accounts").add({
         name: name,
         dashboardName: dashName,
-        startDate: dateVal || new Date().toISOString().slice(0, 10)
+        startDate: dateVal || new Date().toISOString().slice(0, 10),
+        order: nextOrder,
+        createdAt: Date.now()
       });
 
       document.getElementById('new-acc-name').value = '';
@@ -694,7 +726,6 @@
         return cleanStr(e.account) === accCleanName && cleanStr(e.status) === 'date to date earning';
       });
 
-      // LOCK ACTIVE ONLY IF: CURRENT TIME HAS PASSED CUTOFF AND OLD ENTRIES EXIST
       if (now.getTime() >= cycleDates.cutoffObj.getTime() && d2dEntries.length > 0) {
         const startStr = cycleDates.startObj.toISOString().slice(0, 10);
         const cutoffStr = cycleDates.cutoffObj.toISOString().slice(0, 10);
@@ -707,32 +738,6 @@
       }
 
       return null;
-    }
-
-    // ADVANCE CYCLE IF CLEARED
-    function autoAdvanceAccountCycleIfNeeded(acc) {
-      if (!acc || !acc.startDate) return;
-      const cycleDates = getCycleCutoffDate(acc.startDate);
-      if (!cycleDates) return;
-
-      const now = new Date();
-      if (now.getTime() >= cycleDates.cutoffObj.getTime()) {
-        const startDay = cycleDates.startDay;
-        let yr = now.getFullYear();
-        let mo = now.getMonth();
-        if (now.getDate() < startDay) {
-          mo -= 1;
-          if (mo < 0) { mo = 11; yr -= 1; }
-        }
-        const daysInMo = new Date(yr, mo + 1, 0).getDate();
-        const actualDay = Math.min(startDay, daysInMo);
-        
-        const newStartStr = `${yr}-${String(mo + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
-        
-        db.collection("accounts").doc(acc.docId).update({
-          startDate: newStartStr
-        });
-      }
     }
 
     function addEntry() {
@@ -758,41 +763,40 @@
           const lockResult = checkCycleLock(currentAcc);
           if (lockResult && lockResult.isLocked) {
             alert(`⛔ سائیکل مکمل ہو چکا ہے / لاک الرٹ!\n\nآپ کا 1 مہینہ (${lockResult.startDateStr} سے ${lockResult.cutoffDateStr} تک) مکمل ہو چکا ہے۔\n\nاس وقت لسٹ میں ${lockResult.entryCount} پرانی اینٹریز موجود ہیں۔\n\nنئی اینٹری ایڈ کرنے کے لیے پہلے ان اینٹریز کو "Monthly Income" میں منتقل کریں اور یہاں سے ریموو کریں۔`);
-            return; // BLOCKS ADDING UNTIL CLEARED
+            return;
           }
-
-          // Automatically advance cycle to current month if cleared and cutoff passed
-          autoAdvanceAccountCycleIfNeeded(currentAcc);
         }
       }
 
       db.collection("payments").add({
-        amount, 
-        currency, 
-        account: currentAcc ? currentAcc.name : selectElem.value,
-        date: dateVal, 
+        account: currentAcc ? currentAcc.name : '',
+        amount: amount,
+        currency: currency,
+        date: dateVal,
         time: timeVal,
-        note: note || '-', 
+        note: note,
         status: currentStatus,
         createdAt: Date.now()
+      }).then(() => {
+        document.getElementById('amount').value = '0';
+        document.getElementById('note').value = '';
       });
-
-      document.getElementById('amount').value = 0;
-      document.getElementById('note').value = '';
     }
 
     function removeEntry(docId) {
-      if(confirm("Entry delete kar dein?")) {
+      if (confirm("Kya aap is entry ko delete karna chahte hain?")) {
         db.collection("payments").doc(docId).delete();
       }
     }
 
     function exportData() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ accounts: accountsList, entries: entries }, null, 2));
-      const a = document.createElement('a');
-      a.href = dataStr;
-      a.download = `ledger_backup_${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `payment_ledger_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
     }
   </script>
 </body>
