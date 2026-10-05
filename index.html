@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.0 - Dashboard & Available Tabs</title>
+  <title>Payment Ledger v12.0 - Multi-Company & Account Manager</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -63,6 +63,14 @@
     .alloc-item strong { font-size: 11px; color: #ef4444; display: block; margin-top: 2px; }
     .alloc-item .net-val { font-size: 11px; color: var(--accent-color); font-weight: bold; margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px; }
 
+    /* Company Navigation Section */
+    .company-section { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 6px; margin-bottom: 20px; }
+    .company-title { font-size: 13px; font-weight: bold; color: #f59e0b; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .company-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .company-pill { padding: 8px 14px; background: var(--input-bg); border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; color: var(--text-color); display: flex; align-items: center; gap: 6px; }
+    .company-pill.active { background: #451a03; border-color: #f59e0b; color: #fbbf24; }
+    .company-pill .btn-del-comp { color: var(--danger-color); font-size: 10px; margin-left: 6px; padding: 0 4px; background: none; border: none; cursor: pointer; }
+
     /* Accounts Section Cards */
     .start-date-box { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 4px; margin-bottom: 24px; }
     .start-date-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
@@ -96,7 +104,7 @@
 
     .btn-submit { float: right; background: var(--button-bg); color: var(--button-text); border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 12px; }
 
-    /* Bottom Account Breakdown Area */
+    /* Bottom Breakdown Area */
     .bottom-breakdown { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 4px; margin-top: 24px; }
     .breakdown-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 12px; overflow-x: auto; }
     .b-tab { font-size: 11px; padding: 6px 12px; background: var(--input-bg); border: 1px solid var(--border-color); cursor: pointer; border-radius: 4px; white-space: nowrap; }
@@ -173,15 +181,24 @@
     </div>
   </div>
 
-  <!-- Accounts Box -->
+  <!-- SECTION 1: Company / App Selector -->
+  <div class="company-section">
+    <div class="company-title">
+      <span>🏢 1. Select Company / App</span>
+      <button onclick="addNewCompany()" style="padding: 4px 8px; background: #451a03; color: #fbbf24; border: 1px solid #f59e0b; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;">➕ Add New Company</button>
+    </div>
+    <div class="company-pills" id="companies-container"></div>
+  </div>
+
+  <!-- SECTION 2: Accounts inside Selected Company -->
   <div class="start-date-box">
     <div style="font-size: 13px; font-weight: bold; color: var(--accent-color); margin-bottom: 8px;">
-      Select Account to View Details
+      👤 2. Accounts Under <span id="current-company-label" style="color: #38bdf8;">Loading...</span>
     </div>
     <div class="start-date-grid" id="accounts-container"></div>
 
     <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-      <input type="text" id="new-acc-name" placeholder="TikTok Account Name..." style="max-width: 180px;">
+      <input type="text" id="new-acc-name" placeholder="Account Name (e.g. Mughees)..." style="max-width: 200px;">
       <input type="text" id="new-acc-dash-name" placeholder="Dashboard Name..." style="max-width: 180px;">
       <input type="date" id="new-acc-date" style="max-width: 140px;">
       <button onclick="addNewAccount()" style="padding: 8px 12px; background: var(--avail-bg); color: var(--avail-color); border: 1px solid var(--avail-color); border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">➕ Add Account</button>
@@ -214,7 +231,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Account</label>
+        <label>Select Account</label>
         <select id="account-select" onchange="onAccountSelectChange()"></select>
       </div>
     </div>
@@ -260,12 +277,25 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let entries = [];
+    let companiesList = [];
     let accountsList = [];
-    let currentStatus = 'Date To Date Earning';
+    let entries = [];
+
+    let selectedCompanyDocId = null;
     let selectedAccountIndex = 0;
+
+    let currentStatus = 'Date To Date Earning';
     let selectedBottomTab = 'Date To Date Earning';
-    let accountsSeeded = false;
+
+    const standardStatuses = [
+      'Date To Date Earning',
+      'Dashboard',
+      'Available',
+      'Monthly Income',
+      'Send Transaction',
+      'Binance Payment',
+      'My Payment'
+    ];
 
     const now = new Date();
     document.getElementById('entry-date').valueAsDate = now;
@@ -350,14 +380,39 @@
 
     function toggleTheme() { document.body.classList.toggle('light-theme'); }
 
-    // REALTIME ACCOUNTS SYNC FROM FIREBASE (ORDER BASED)
+    // REALTIME COMPANIES SYNC
+    db.collection("companies").onSnapshot((snapshot) => {
+      companiesList = [];
+      snapshot.forEach((doc) => {
+        companiesList.push({ docId: doc.id, ...doc.data() });
+      });
+
+      companiesList.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      if (companiesList.length === 0) {
+        // Seed default Companies if empty
+        const defaultComps = ["TikTok Accounts", "1998 Cam App", "Hypic & CapCut"];
+        defaultComps.forEach((cName, idx) => {
+          db.collection("companies").add({ name: cName, createdAt: Date.now() + idx });
+        });
+        return;
+      }
+
+      if (!selectedCompanyDocId || !companiesList.find(c => c.docId === selectedCompanyDocId)) {
+        selectedCompanyDocId = companiesList[0].docId;
+      }
+
+      renderCompanies();
+      renderAccounts();
+    });
+
+    // REALTIME ACCOUNTS SYNC
     db.collection("accounts").onSnapshot((snapshot) => {
       accountsList = [];
       snapshot.forEach((doc) => {
         accountsList.push({ docId: doc.id, ...doc.data() });
       });
 
-      // Sort accounts strictly by custom order/sequence
       accountsList.sort((a, b) => {
         const orderA = a.order !== undefined ? a.order : 0;
         const orderB = b.order !== undefined ? b.order : 0;
@@ -365,135 +420,78 @@
         return (a.createdAt || 0) - (b.createdAt || 0);
       });
 
-      if (accountsList.length === 0 && !accountsSeeded) {
-        accountsSeeded = true;
-        const defaultAccs = [
-          { name: "Mughees Editing", dashboardName: "Mughees Admin", startDate: "2026-06-27", order: 1, createdAt: 1 },
-          { name: "Itx Rummi", dashboardName: "Rummi", startDate: "2026-07-03", order: 2, createdAt: 2 },
-          { name: "Mughees Editor", dashboardName: "Rummi", startDate: "2026-07-01", order: 3, createdAt: 3 }
-        ];
-        defaultAccs.forEach(acc => db.collection("accounts").add(acc));
-        return;
-      }
-
-      if (selectedAccountIndex >= accountsList.length) {
-        selectedAccountIndex = Math.max(0, accountsList.length - 1);
-      }
-
       renderAccounts();
       renderFormStatusButtons();
       renderBottomBreakdown();
     });
 
-    // REALTIME PAYMENTS SYNC FROM FIREBASE
+    // REALTIME PAYMENTS SYNC
     db.collection("payments").onSnapshot((snapshot) => {
       entries = [];
       snapshot.forEach((doc) => { entries.push({ docId: doc.id, ...doc.data() }); });
-      renderAccounts();
-      renderFormStatusButtons();
       renderBottomBreakdown();
     });
 
-    function selectAccountCard(idx) {
-      selectedAccountIndex = idx;
-      document.getElementById('account-select').selectedIndex = idx;
-      renderFormStatusButtons();
+    // --- COMPANY MANAGEMENT ---
+    function renderCompanies() {
+      const container = document.getElementById('companies-container');
+      container.innerHTML = '';
+
+      companiesList.forEach((comp) => {
+        const isActive = comp.docId === selectedCompanyDocId;
+        const pill = document.createElement('div');
+        pill.className = `company-pill ${isActive ? 'active' : ''}`;
+        pill.onclick = () => selectCompany(comp.docId);
+        pill.innerHTML = `
+          🏢 ${comp.name}
+          <button class="btn-del-comp" onclick="deleteCompany(event, '${comp.docId}')" title="Delete Company">✖</button>
+        `;
+        container.appendChild(pill);
+      });
+
+      const currentComp = companiesList.find(c => c.docId === selectedCompanyDocId);
+      document.getElementById('current-company-label').innerText = currentComp ? currentComp.name : 'None Selected';
+    }
+
+    function selectCompany(docId) {
+      selectedCompanyDocId = docId;
+      selectedAccountIndex = 0;
+      renderCompanies();
       renderAccounts();
+      renderFormStatusButtons();
       renderBottomBreakdown();
     }
 
-    function onAccountSelectChange() {
-      const selIdx = document.getElementById('account-select').selectedIndex;
-      selectedAccountIndex = selIdx;
-      renderFormStatusButtons();
-      renderAccounts();
-      renderBottomBreakdown();
+    function addNewCompany() {
+      const name = prompt("نئی کمپنی / ایپ کا نام لکھیں:");
+      if (!name || !name.trim()) return;
+
+      db.collection("companies").add({
+        name: name.trim(),
+        createdAt: Date.now()
+      }).then((docRef) => {
+        selectedCompanyDocId = docRef.id;
+      });
     }
 
-    function renderFormStatusButtons() {
-      const currentAcc = accountsList[selectedAccountIndex];
-      const container = document.getElementById('status-buttons-container');
-      container.innerHTML = '';
+    function deleteCompany(event, docId) {
+      event.stopPropagation();
+      const comp = companiesList.find(c => c.docId === docId);
+      if (!comp) return;
 
-      let statuses = [];
-      if (currentAcc && cleanStr(currentAcc.name) === "mughees editing") {
-        statuses = [
-          'Binance Payment',
-          'My Payment',
-          'Date To Date Earning',
-          'Dashboard',
-          'Available',
-          'Monthly Income'
-        ];
-      } else {
-        statuses = [
-          'Date To Date Earning',
-          'Dashboard',
-          'Available',
-          'Monthly Income',
-          'Send Transaction'
-        ];
+      if (confirm(`کیا آپ واقعی کمپنی "${comp.name}" کو ڈیلیٹ کرنا چاہتے ہیں؟`)) {
+        db.collection("companies").doc(docId).delete().then(() => {
+          if (selectedCompanyDocId === docId) {
+            selectedCompanyDocId = null;
+          }
+        });
       }
-
-      if (!statuses.includes(currentStatus)) {
-        currentStatus = statuses[0];
-      }
-
-      statuses.forEach(st => {
-        const btn = document.createElement('button');
-        const isSpecial = st === 'Binance Payment' || st === 'My Payment';
-        btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
-        btn.innerText = st;
-        btn.onclick = () => {
-          currentStatus = st;
-          renderFormStatusButtons();
-        };
-        container.appendChild(btn);
-      });
-
-      renderBottomTabs();
     }
 
-    function renderBottomTabs() {
-      const currentAcc = accountsList[selectedAccountIndex];
-      const container = document.getElementById('bottom-tabs-container');
-      container.innerHTML = '';
-
-      let tabs = [];
-      if (currentAcc && cleanStr(currentAcc.name) === "mughees editing") {
-        tabs = [
-          'Binance Payment',
-          'My Payment',
-          'Date To Date Earning',
-          'Dashboard',
-          'Available',
-          'Monthly Income'
-        ];
-      } else {
-        tabs = [
-          'Date To Date Earning',
-          'Dashboard',
-          'Available',
-          'Monthly Income',
-          'Send Transaction'
-        ];
-      }
-
-      if (!tabs.includes(selectedBottomTab)) {
-        selectedBottomTab = tabs[0];
-      }
-
-      tabs.forEach(t => {
-        const tab = document.createElement('div');
-        tab.className = `b-tab ${t === selectedBottomTab ? 'active' : ''}`;
-        tab.innerText = t;
-        tab.onclick = () => {
-          selectedBottomTab = t;
-          renderBottomTabs();
-          renderBottomBreakdown();
-        };
-        container.appendChild(tab);
-      });
+    // --- ACCOUNTS MANAGEMENT ---
+    function getFilteredAccounts() {
+      if (!selectedCompanyDocId) return [];
+      return accountsList.filter(a => a.companyDocId === selectedCompanyDocId || (!a.companyDocId && selectedCompanyDocId === companiesList[0]?.docId));
     }
 
     function renderAccounts() {
@@ -502,7 +500,17 @@
       container.innerHTML = '';
       select.innerHTML = '';
 
-      accountsList.forEach((acc, idx) => {
+      const filteredAccounts = getFilteredAccounts();
+
+      if (selectedAccountIndex >= filteredAccounts.length) {
+        selectedAccountIndex = Math.max(0, filteredAccounts.length - 1);
+      }
+
+      if (filteredAccounts.length === 0) {
+        container.innerHTML = `<div style="font-size:12px; opacity:0.6; padding:10px;">اس کمپنی میں فی الحال کوئی اکاؤنٹ نہیں ہے۔ نیچے سے نیا اکاؤنٹ ایڈ کریں۔</div>`;
+      }
+
+      filteredAccounts.forEach((acc, idx) => {
         const isSelected = selectedAccountIndex === idx;
         const card = document.createElement('div');
         card.className = `account-card ${isSelected ? 'active' : ''}`;
@@ -511,8 +519,8 @@
           <div class="acc-actions">
             <button class="btn-acc-action" onclick="moveAccount(event, ${idx}, -1)" title="Move Up">⬆️</button>
             <button class="btn-acc-action" onclick="moveAccount(event, ${idx}, 1)" title="Move Down">⬇️</button>
-            <button class="btn-acc-action" onclick="editAccount(event, ${idx})">✏️</button>
-            <button class="btn-acc-action danger" onclick="deleteAccount(event, ${idx})">🗑️</button>
+            <button class="btn-acc-action" onclick="editAccount(event, '${acc.docId}')">✏️</button>
+            <button class="btn-acc-action danger" onclick="deleteAccount(event, '${acc.docId}')">🗑️</button>
           </div>
           <h4>${acc.name}</h4>
           <div class="acc-sub-info">
@@ -532,49 +540,67 @@
         select.appendChild(opt);
       });
 
-      select.selectedIndex = selectedAccountIndex;
+      if (filteredAccounts.length > 0) {
+        select.selectedIndex = selectedAccountIndex;
+      }
     }
 
-    function moveAccount(event, idx, direction) {
+    function selectAccountCard(idx) {
+      selectedAccountIndex = idx;
+      document.getElementById('account-select').selectedIndex = idx;
+      renderAccounts();
+      renderFormStatusButtons();
+      renderBottomBreakdown();
+    }
+
+    function onAccountSelectChange() {
+      const selIdx = document.getElementById('account-select').selectedIndex;
+      selectedAccountIndex = selIdx;
+      renderAccounts();
+      renderFormStatusButtons();
+      renderBottomBreakdown();
+    }
+
+    function moveAccount(event, filteredIdx, direction) {
       event.stopPropagation();
-      const targetIdx = idx + direction;
-      if (targetIdx < 0 || targetIdx >= accountsList.length) return;
+      const filtered = getFilteredAccounts();
+      const targetIdx = filteredIdx + direction;
+      if (targetIdx < 0 || targetIdx >= filtered.length) return;
 
-      accountsList.forEach((acc, i) => { acc._calcOrder = i; });
-
-      const currentAcc = accountsList[idx];
-      const targetAcc = accountsList[targetIdx];
+      const currentAcc = filtered[filteredIdx];
+      const targetAcc = filtered[targetIdx];
 
       const batch = db.batch();
-      batch.update(db.collection("accounts").doc(currentAcc.docId), { order: targetAcc._calcOrder });
-      batch.update(db.collection("accounts").doc(targetAcc.docId), { order: currentAcc._calcOrder });
+      const currentOrder = currentAcc.order !== undefined ? currentAcc.order : filteredIdx;
+      const targetOrder = targetAcc.order !== undefined ? targetAcc.order : targetIdx;
+
+      batch.update(db.collection("accounts").doc(currentAcc.docId), { order: targetOrder });
+      batch.update(db.collection("accounts").doc(targetAcc.docId), { order: currentOrder });
 
       batch.commit();
     }
 
-    function editAccount(event, idx) {
+    function editAccount(event, docId) {
       event.stopPropagation();
-      const currentAcc = accountsList[idx];
-      if (!currentAcc) return;
+      const acc = accountsList.find(a => a.docId === docId);
+      if (!acc) return;
 
-      const newName = prompt("TikTok Account Name likhein:", currentAcc.name);
+      const newName = prompt("Account Name لکھیں:", acc.name);
       if (newName === null) return;
 
-      const newDashName = prompt("Website Dashboard Name likhein:", currentAcc.dashboardName || "");
+      const newDashName = prompt("Dashboard Name لکھیں:", acc.dashboardName || "");
       if (newDashName === null) return;
 
-      const newDate = prompt("Start Date (YYYY-MM-DD) likhein:", currentAcc.startDate);
+      const newDate = prompt("Start Date (YYYY-MM-DD) لکھیں:", acc.startDate);
       if (newDate === null) return;
 
-      const oldName = currentAcc.name;
+      const oldName = acc.name;
       const finalName = newName.trim() || oldName;
-      const finalDashName = newDashName.trim();
-      const finalDate = newDate.trim() || currentAcc.startDate;
 
-      db.collection("accounts").doc(currentAcc.docId).update({
+      db.collection("accounts").doc(docId).update({
         name: finalName,
-        dashboardName: finalDashName,
-        startDate: finalDate
+        dashboardName: newDashName.trim(),
+        startDate: newDate.trim() || acc.startDate
       });
 
       if (oldName !== finalName) {
@@ -586,32 +612,35 @@
       }
     }
 
-    function deleteAccount(event, idx) {
+    function deleteAccount(event, docId) {
       event.stopPropagation();
-      const currentAcc = accountsList[idx];
-      if (!currentAcc) return;
+      const acc = accountsList.find(a => a.docId === docId);
+      if (!acc) return;
 
-      if (confirm(`Kya aap "${currentAcc.name}" account ko delete karna chahte hain?`)) {
-        db.collection("accounts").doc(currentAcc.docId).delete().then(() => {
-          if (selectedAccountIndex >= accountsList.length - 1) {
-            selectedAccountIndex = Math.max(0, accountsList.length - 2);
-          }
-        });
+      if (confirm(`کیا آپ "${acc.name}" اکاؤنٹ ڈیلیٹ کرنا چاہتے ہیں؟`)) {
+        db.collection("accounts").doc(docId).delete();
       }
     }
 
     function addNewAccount() {
+      if (!selectedCompanyDocId) {
+        alert("پہلے کوئی کمپنی سلیکٹ کریں!");
+        return;
+      }
+
       const name = document.getElementById('new-acc-name').value.trim();
       const dashName = document.getElementById('new-acc-dash-name').value.trim();
       const dateVal = document.getElementById('new-acc-date').value;
 
-      if (!name) { alert("Account ka naam likhein!"); return; }
+      if (!name) { alert("اکاؤنٹ کا نام لکھیں!"); return; }
 
-      const nextOrder = accountsList.length > 0 
-        ? Math.max(...accountsList.map((a, i) => (a.order !== undefined ? a.order : i))) + 1 
+      const filtered = getFilteredAccounts();
+      const nextOrder = filtered.length > 0 
+        ? Math.max(...filtered.map((a, i) => (a.order !== undefined ? a.order : i))) + 1 
         : 1;
 
       db.collection("accounts").add({
+        companyDocId: selectedCompanyDocId,
         name: name,
         dashboardName: dashName,
         startDate: dateVal || new Date().toISOString().slice(0, 10),
@@ -624,9 +653,61 @@
       document.getElementById('new-acc-date').value = '';
     }
 
+    // --- FORM STATUS & BREAKDOWN ---
+    function renderFormStatusButtons() {
+      const container = document.getElementById('status-buttons-container');
+      container.innerHTML = '';
+
+      if (!standardStatuses.includes(currentStatus)) {
+        currentStatus = standardStatuses[0];
+      }
+
+      standardStatuses.forEach(st => {
+        const btn = document.createElement('button');
+        const isSpecial = st === 'Binance Payment' || st === 'My Payment';
+        btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
+        btn.innerText = st;
+        btn.onclick = () => {
+          currentStatus = st;
+          renderFormStatusButtons();
+        };
+        container.appendChild(btn);
+      });
+
+      renderBottomTabs();
+    }
+
+    function renderBottomTabs() {
+      const container = document.getElementById('bottom-tabs-container');
+      container.innerHTML = '';
+
+      if (!standardStatuses.includes(selectedBottomTab)) {
+        selectedBottomTab = standardStatuses[0];
+      }
+
+      standardStatuses.forEach(t => {
+        const tab = document.createElement('div');
+        tab.className = `b-tab ${t === selectedBottomTab ? 'active' : ''}`;
+        tab.innerText = t;
+        tab.onclick = () => {
+          selectedBottomTab = t;
+          renderBottomTabs();
+          renderBottomBreakdown();
+        };
+        container.appendChild(tab);
+      });
+    }
+
     function renderBottomBreakdown() {
-      const currentAcc = accountsList[selectedAccountIndex];
-      if (!currentAcc) return;
+      const filteredAccounts = getFilteredAccounts();
+      const currentAcc = filteredAccounts[selectedAccountIndex];
+
+      if (!currentAcc) {
+        document.getElementById('selected-acc-heading').innerText = "No Account Selected";
+        document.getElementById('bottom-entries-list').innerHTML = '';
+        document.getElementById('bottom-total-val').innerText = 'PKR 0';
+        return;
+      }
 
       document.getElementById('selected-acc-heading').innerText = `${currentAcc.name} — Category Breakdown`;
 
@@ -642,14 +723,10 @@
       filtered.sort((a, b) => {
         const dateA = a.date || '0000-00-00';
         const dateB = b.date || '0000-00-00';
-        if (dateA !== dateB) {
-          return dateA.localeCompare(dateB);
-        }
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
         const timeA = a.time || '00:00';
         const timeB = b.time || '00:00';
-        if (timeA !== timeB) {
-          return timeA.localeCompare(timeB);
-        }
+        if (timeA !== timeB) return timeA.localeCompare(timeB);
         return (a.createdAt || 0) - (b.createdAt || 0);
       });
 
@@ -671,7 +748,7 @@
           <div class="entry-left">
             ${dateTimeDisplay ? `<span style="color:#38bdf8; font-weight:bold;">${dateTimeDisplay}</span>` : ''}
             <span class="entry-badge">${e.status}</span>
-            <span>${e.note}</span>
+            <span>${e.note || ''}</span>
           </div>
           <div>
             <strong style="margin-right: 12px;">${symbol} ${formatNum(e.amount)}</strong>
@@ -690,33 +767,19 @@
       }
     }
 
-    function getCycleCutoffDate(startDateStr) {
-      if (!startDateStr) return null;
-      const p = startDateStr.trim().split(/[-/]/);
+    function checkCycleLock(acc) {
+      if (!acc || !acc.startDate) return null;
+
+      const p = acc.startDate.trim().split(/[-/]/);
       if (p.length !== 3) return null;
       
-      let y, m, d;
-      if (p[0].length === 4) {
-        y = parseInt(p[0], 10);
-        m = parseInt(p[1], 10) - 1;
-        d = parseInt(p[2], 10);
-      } else {
-        y = parseInt(p[2], 10);
-        m = parseInt(p[0], 10) - 1;
-        d = parseInt(p[1], 10);
+      let y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1, d = parseInt(p[2], 10);
+      if (p[0].length !== 4) {
+        y = parseInt(p[2], 10); m = parseInt(p[0], 10) - 1; d = parseInt(p[1], 10);
       }
 
       const startObj = new Date(y, m, d, 0, 0, 0, 0);
       const cutoffObj = new Date(y, m + 1, d, 0, 0, 0, 0);
-
-      return { startObj, cutoffObj, startDay: d };
-    }
-
-    function checkCycleLock(acc) {
-      if (!acc || !acc.startDate) return null;
-
-      const cycleDates = getCycleCutoffDate(acc.startDate);
-      if (!cycleDates) return null;
 
       const now = new Date();
       const accCleanName = cleanStr(acc.name);
@@ -725,9 +788,9 @@
         return cleanStr(e.account) === accCleanName && cleanStr(e.status) === 'date to date earning';
       });
 
-      if (now.getTime() >= cycleDates.cutoffObj.getTime() && d2dEntries.length > 0) {
-        const startStr = cycleDates.startObj.toISOString().slice(0, 10);
-        const cutoffStr = cycleDates.cutoffObj.toISOString().slice(0, 10);
+      if (now.getTime() >= cutoffObj.getTime() && d2dEntries.length > 0) {
+        const startStr = startObj.toISOString().slice(0, 10);
+        const cutoffStr = cutoffObj.toISOString().slice(0, 10);
         return {
           isLocked: true,
           startDateStr: formatDateDisplay(startStr),
@@ -743,33 +806,34 @@
       const amount = parseFloat(document.getElementById('amount').value);
       const currency = document.getElementById('currency').value;
       
+      const filtered = getFilteredAccounts();
       const selectElem = document.getElementById('account-select');
       const selectedIdx = selectElem ? selectElem.selectedIndex : selectedAccountIndex;
-      const currentAcc = accountsList[selectedIdx] || accountsList[selectedAccountIndex];
+      const currentAcc = filtered[selectedIdx] || filtered[selectedAccountIndex];
 
       const showDate = document.getElementById('chk-show-date').checked;
       const showTime = document.getElementById('chk-show-time').checked;
 
       const dateVal = showDate ? document.getElementById('entry-date').value : '';
       const timeVal = showTime ? document.getElementById('entry-time').value : '';
-      const note = document.getElementById('note').value;
+      const note = document.getElementById('note').value.trim();
 
-      if (!amount || amount <= 0) { alert('Sahi amount likhein!'); return; }
+      if (!amount || amount <= 0) { alert('صحیح رقم لکھیں!'); return; }
+      if (!currentAcc) { alert('پہلے کوئی اکاؤنٹ سلیکٹ کریں!'); return; }
 
       if (cleanStr(currentStatus) === 'date to date earning') {
-        if (currentAcc) {
-          const lockResult = checkCycleLock(currentAcc);
-          if (lockResult && lockResult.isLocked) {
-            alert(`⛔ سائیکل مکمل ہو چکا ہے / لاک الرٹ!\n\nآپ کا 1 مہینہ (${lockResult.startDateStr} سے ${lockResult.cutoffDateStr} تک) مکمل ہو چکا ہے۔\n\nاس وقت لسٹ میں ${lockResult.entryCount} پرانی اینٹریز موجود ہیں۔\n\nنئی اینٹری ایڈ کرنے کے لیے پہلے ان اینٹریز کو "Monthly Income" میں منتقل کریں اور یہاں سے ریموو کریں۔`);
-            return;
-          }
+        const lockResult = checkCycleLock(currentAcc);
+        if (lockResult && lockResult.isLocked) {
+          alert(`⛔ سائیکل مکمل ہو چکا ہے / لاک الرٹ!\n\nآپ کا 1 مہینہ (${lockResult.startDateStr} سے ${lockResult.cutoffDateStr} تک) مکمل ہو چکا ہے۔\n\nاس وقت لسٹ میں ${lockResult.entryCount} پرانی اینٹریز موجود ہیں۔\n\nنئی اینٹری ایڈ کرنے کے لیے پہلے ان اینٹریز کو "Monthly Income" میں شفٹ کریں یا کلئیر کریں۔`);
+          return;
         }
       }
 
       db.collection("payments").add({
-        account: currentAcc ? currentAcc.name : '',
         amount: amount,
         currency: currency,
+        account: currentAcc.name,
+        companyDocId: selectedCompanyDocId,
         date: dateVal,
         time: timeVal,
         note: note,
@@ -778,20 +842,25 @@
       }).then(() => {
         document.getElementById('amount').value = '0';
         document.getElementById('note').value = '';
+      }).catch(err => {
+        console.error("Error adding entry: ", err);
+        alert("Entry add karne mein masla aaya!");
       });
     }
 
     function removeEntry(docId) {
-      if (confirm("Kya aap is entry ko delete karna chahte hain?")) {
-        db.collection("payments").doc(docId).delete();
+      if (confirm('کیا آپ اس اینٹری کو ڈیلیٹ کرنا چاہتے ہیں؟')) {
+        db.collection("payments").doc(docId).delete().catch(err => {
+          console.error("Error deleting entry: ", err);
+        });
       }
     }
 
     function exportData() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ accounts: accountsList, entries: entries }, null, 2));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ companies: companiesList, accounts: accountsList, entries: entries }, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `payment_ledger_backup_${new Date().toISOString().slice(0,10)}.json`);
+      downloadAnchor.setAttribute("download", `ledger_backup_${new Date().toISOString().slice(0, 10)}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
