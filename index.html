@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.0 - Multi-Company & Account Manager</title>
+  <title>Payment Ledger v12.1 - Clean Account Manager</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -73,12 +73,12 @@
 
     /* Accounts Section Cards */
     .start-date-box { background: var(--card-bg); border: 1px solid var(--border-color); padding: 16px; border-radius: 4px; margin-bottom: 24px; }
-    .start-date-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
+    .start-date-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
     
     .account-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 12px; cursor: pointer; transition: 0.2s; position: relative; }
     .account-card:hover { border-color: var(--accent-color); }
     .account-card.active { border-color: var(--accent-color); background: var(--accent-bg); }
-    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 6px; padding-right: 120px; }
+    .account-card h4 { font-size: 14px; color: var(--accent-color); margin-bottom: 4px; padding-right: 110px; word-break: break-word; }
     .acc-sub-info { font-size: 11px; opacity: 0.8; display: flex; justify-content: space-between; margin-top: 4px; }
     
     .acc-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v12.0</h1>
+    <h1 class="title">Payment Ledger v12.1</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -198,9 +198,9 @@
     <div class="start-date-grid" id="accounts-container"></div>
 
     <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-      <input type="text" id="new-acc-name" placeholder="Account Name (e.g. Mughees)..." style="max-width: 200px;">
-      <input type="text" id="new-acc-dash-name" placeholder="Dashboard Name..." style="max-width: 180px;">
-      <input type="date" id="new-acc-date" style="max-width: 140px;">
+      <input type="text" id="new-acc-name" placeholder="Account Name (e.g. Promo A)..." style="max-width: 200px;">
+      <input type="text" id="new-acc-dash-name" placeholder="Dashboard Name (Optional)..." style="max-width: 190px;">
+      <input type="date" id="new-acc-date" title="Start Date (Optional)" style="max-width: 140px;">
       <button onclick="addNewAccount()" style="padding: 8px 12px; background: var(--avail-bg); color: var(--avail-color); border: 1px solid var(--avail-color); border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">➕ Add Account</button>
     </div>
   </div>
@@ -317,7 +317,7 @@
     }
 
     function formatDateDisplay(dateStr) {
-      if (!dateStr) return 'N/A';
+      if (!dateStr || !dateStr.trim()) return '';
       const clean = dateStr.trim();
       const p = clean.split(/[-/]/);
       if (p.length !== 3) return dateStr;
@@ -390,7 +390,6 @@
       companiesList.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
       if (companiesList.length === 0) {
-        // Seed default Companies if empty
         const defaultComps = ["TikTok Accounts", "1998 Cam App", "Hypic & CapCut"];
         defaultComps.forEach((cName, idx) => {
           db.collection("companies").add({ name: cName, createdAt: Date.now() + idx });
@@ -515,6 +514,20 @@
         const card = document.createElement('div');
         card.className = `account-card ${isSelected ? 'active' : ''}`;
         card.onclick = () => selectAccountCard(idx);
+        
+        // Clean conditional details rendering (NO empty lines or N/A)
+        let dashHtml = (acc.dashboardName && acc.dashboardName.trim()) ? `
+          <div class="acc-sub-info">
+            <span>Dashboard:</span> 
+            <strong style="color: #38bdf8;">${acc.dashboardName.trim()}</strong>
+          </div>` : '';
+
+        let dateHtml = (acc.startDate && acc.startDate.trim()) ? `
+          <div class="acc-sub-info">
+            <span>Start Date:</span> 
+            <strong>${formatDateDisplay(acc.startDate)}</strong>
+          </div>` : '';
+
         card.innerHTML = `
           <div class="acc-actions">
             <button class="btn-acc-action" onclick="moveAccount(event, ${idx}, -1)" title="Move Up">⬆️</button>
@@ -523,20 +536,15 @@
             <button class="btn-acc-action danger" onclick="deleteAccount(event, '${acc.docId}')">🗑️</button>
           </div>
           <h4>${acc.name}</h4>
-          <div class="acc-sub-info">
-            <span>Dashboard:</span> 
-            <strong style="color: #38bdf8;">${acc.dashboardName || 'N/A'}</strong>
-          </div>
-          <div class="acc-sub-info">
-            <span>Start Date:</span> 
-            <strong>${formatDateDisplay(acc.startDate)}</strong>
-          </div>
+          ${dashHtml}
+          ${dateHtml}
         `;
         container.appendChild(card);
 
         const opt = document.createElement('option');
         opt.value = acc.name; 
-        opt.innerText = `${acc.name} (${acc.dashboardName || 'No Dash Name'})`;
+        const dashLabel = (acc.dashboardName && acc.dashboardName.trim()) ? ` (${acc.dashboardName.trim()})` : '';
+        opt.innerText = `${acc.name}${dashLabel}`;
         select.appendChild(opt);
       });
 
@@ -588,10 +596,10 @@
       const newName = prompt("Account Name لکھیں:", acc.name);
       if (newName === null) return;
 
-      const newDashName = prompt("Dashboard Name لکھیں:", acc.dashboardName || "");
+      const newDashName = prompt("Dashboard Name لکھیں (خالی چھوڑ سکتے ہیں):", acc.dashboardName || "");
       if (newDashName === null) return;
 
-      const newDate = prompt("Start Date (YYYY-MM-DD) لکھیں:", acc.startDate);
+      const newDate = prompt("Start Date (YYYY-MM-DD) (خالی چھوڑ سکتے ہیں):", acc.startDate || "");
       if (newDate === null) return;
 
       const oldName = acc.name;
@@ -600,7 +608,7 @@
       db.collection("accounts").doc(docId).update({
         name: finalName,
         dashboardName: newDashName.trim(),
-        startDate: newDate.trim() || acc.startDate
+        startDate: newDate.trim()
       });
 
       if (oldName !== finalName) {
@@ -624,7 +632,7 @@
 
     function addNewAccount() {
       if (!selectedCompanyDocId) {
-        alert("پہلے کوئی کمپنی سلیکٹ کریں!");
+        alert("پہلے کوئی کمپنی یا ایپ سلیکٹ کریں!");
         return;
       }
 
@@ -642,8 +650,8 @@
       db.collection("accounts").add({
         companyDocId: selectedCompanyDocId,
         name: name,
-        dashboardName: dashName,
-        startDate: dateVal || new Date().toISOString().slice(0, 10),
+        dashboardName: dashName, // optional, stays empty if empty
+        startDate: dateVal ? dateVal : "", // NO automatic today date!
         order: nextOrder,
         createdAt: Date.now()
       });
@@ -768,7 +776,7 @@
     }
 
     function checkCycleLock(acc) {
-      if (!acc || !acc.startDate) return null;
+      if (!acc || !acc.startDate || !acc.startDate.trim()) return null;
 
       const p = acc.startDate.trim().split(/[-/]/);
       if (p.length !== 3) return null;
@@ -824,7 +832,7 @@
       if (cleanStr(currentStatus) === 'date to date earning') {
         const lockResult = checkCycleLock(currentAcc);
         if (lockResult && lockResult.isLocked) {
-          alert(`⛔ سائیکل مکمل ہو چکا ہے / لاک الرٹ!\n\nآپ کا 1 مہینہ (${lockResult.startDateStr} سے ${lockResult.cutoffDateStr} تک) مکمل ہو چکا ہے۔\n\nاس وقت لسٹ میں ${lockResult.entryCount} پرانی اینٹریز موجود ہیں۔\n\nنئی اینٹری ایڈ کرنے کے لیے پہلے ان اینٹریز کو "Monthly Income" میں شفٹ کریں یا کلئیر کریں۔`);
+          alert(`⛔ سائیکل مکمل ہو چکا ہے / لاک الرٹ!\n\nآپ کا 1 مہینہ (${lockResult.startDateStr} سے ${lockResult.cutoffDateStr} تک) مکمل ہو چکا ہے۔\n\nنئی اینٹری ایڈ کرنے کے لیے پہلے پرانی اینٹریز کو "Monthly Income" میں شفٹ کریں یا کلئیر کریں۔`);
           return;
         }
       }
