@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.5 - Custom Company Workflows</title>
+  <title>Payment Ledger v12.6 - Custom Workflows</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -120,7 +120,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v12.5</h1>
+    <h1 class="title">Payment Ledger v12.6</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -229,10 +229,6 @@
           <option value="CNY">CNY</option>
         </select>
       </div>
-      <div class="form-group" id="grp-likes" style="display: none;">
-        <label style="color: #f59e0b; font-weight: bold;">👍 Ad Likes Count</label>
-        <input type="number" id="likes" placeholder="e.g. 2500" value="0">
-      </div>
       <div class="form-group">
         <label>Select Account</label>
         <select id="account-select" onchange="onAccountSelectChange()"></select>
@@ -242,7 +238,7 @@
     <div class="form-row">
       <div class="form-group" id="grp-entry-date"><label>Date</label><input type="date" id="entry-date"></div>
       <div class="form-group" id="grp-entry-time"><label>Time</label><input type="time" id="entry-time"></div>
-      <div class="form-group"><label>Note / Reason / Video Title</label><input type="text" id="note" placeholder="Enter details..."></div>
+      <div class="form-group"><label>Note / Reason / Details</label><input type="text" id="note" placeholder="Enter details..."></div>
     </div>
 
     <label>Entry Category / Status</label>
@@ -301,11 +297,11 @@
       'My Payment'
     ];
 
-    // Special custom statuses for "1998 Cam"
+    // Custom statuses for "1998 Cam"
     const camStatuses = [
       'Video Uploads',
       'PayPal Received ($)',
-      'Ad Spend & Likes',
+      'Ad Spend',
       'Bank Received (PKR)'
     ];
 
@@ -710,15 +706,9 @@
         currentStatus = activeStatuses[0];
       }
 
-      // Show/Hide Likes Input Field dynamically
-      const likesGrp = document.getElementById('grp-likes');
-      if (likesGrp) {
-        likesGrp.style.display = (currentStatus === 'Ad Spend & Likes') ? 'block' : 'none';
-      }
-
       activeStatuses.forEach(st => {
         const btn = document.createElement('button');
-        const isSpecial = st === 'Ad Spend & Likes' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
+        const isSpecial = st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
         btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
         btn.innerText = st;
         btn.onclick = () => {
@@ -791,7 +781,16 @@
       const accEntries = entries.filter(e => isEntryForAccount(e, currentAcc));
       
       let targetStatus = selectedBottomTab;
-      const filtered = accEntries.filter(e => cleanStr(e.status) === cleanStr(targetStatus));
+      
+      // Compatibility fallback: if old entries were saved under 'Ad Spend & Likes'
+      const filtered = accEntries.filter(e => {
+        const s = cleanStr(e.status);
+        const target = cleanStr(targetStatus);
+        if (target === 'ad spend') {
+          return s === 'ad spend' || s === 'ad spend & likes';
+        }
+        return s === target;
+      });
 
       filtered.sort((a, b) => {
         const dateA = a.date || '0000-00-00';
@@ -804,20 +803,16 @@
       });
 
       const totalsByCurr = {};
-      let totalLikesCount = 0;
 
       filtered.forEach(e => {
         const curr = e.currency || 'USD';
         totalsByCurr[curr] = (totalsByCurr[curr] || 0) + e.amount;
-        if (e.likes) totalLikesCount += parseFloat(e.likes) || 0;
         
         const symbol = getCurrencySymbol(curr);
         
         let dateTimeDisplay = '';
         if (e.date) dateTimeDisplay += formatDateDisplay(e.date) + ' ';
         if (e.time) dateTimeDisplay += formatTime12Hour(e.time);
-
-        let likesHtml = (e.likes && e.likes > 0) ? `<span style="color:#f59e0b; font-weight:bold; background:#451a03; padding:2px 6px; border-radius:4px; font-size:11px;">👍 ${formatNum(e.likes)} Likes</span>` : '';
 
         const item = document.createElement('div');
         item.className = 'entry-item';
@@ -826,7 +821,6 @@
             ${dateTimeDisplay ? `<span style="color:#38bdf8; font-weight:bold;">${dateTimeDisplay}</span>` : ''}
             <span class="entry-badge">${e.status}</span>
             <span>${e.note || ''}</span>
-            ${likesHtml}
           </div>
           <div>
             <strong style="margin-right: 12px;">${symbol} ${formatNum(e.amount)}</strong>
@@ -841,17 +835,12 @@
 
       if (totalKeys.length === 0) totalStr = '0';
 
-      if (selectedBottomTab === 'Ad Spend & Likes') {
-        document.getElementById('bottom-total-val').innerHTML = `Total Spent: <span style="color:var(--accent-color);">${totalStr}</span> &nbsp;|&nbsp; <span style="color:#f59e0b;">Total Likes: ${formatNum(totalLikesCount)} Likes</span>`;
-      } else {
-        document.getElementById('bottom-total-val').innerHTML = totalStr;
-      }
+      document.getElementById('bottom-total-val').innerText = totalStr;
     }
 
     function addEntry() {
       const amount = parseFloat(document.getElementById('amount').value) || 0;
       const currency = document.getElementById('currency').value;
-      const likes = parseFloat(document.getElementById('likes').value) || 0;
       
       const filtered = getFilteredAccounts();
       const selectElem = document.getElementById('account-select');
@@ -870,7 +859,6 @@
       db.collection("payments").add({
         amount: amount,
         currency: currency,
-        likes: likes,
         account: currentAcc.name,
         accountDocId: currentAcc.docId,
         companyDocId: selectedCompanyDocId,
@@ -881,7 +869,6 @@
         createdAt: Date.now()
       }).then(() => {
         document.getElementById('amount').value = '0';
-        document.getElementById('likes').value = '0';
         document.getElementById('note').value = '';
       }).catch(err => {
         console.error("Error adding entry: ", err);
