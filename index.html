@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.1 - Clean Account Manager</title>
+  <title>Payment Ledger v12.2 - Isolated Accounts</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v12.1</h1>
+    <h1 class="title">Payment Ledger v12.2</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -515,7 +515,6 @@
         card.className = `account-card ${isSelected ? 'active' : ''}`;
         card.onclick = () => selectAccountCard(idx);
         
-        // Clean conditional details rendering (NO empty lines or N/A)
         let dashHtml = (acc.dashboardName && acc.dashboardName.trim()) ? `
           <div class="acc-sub-info">
             <span>Dashboard:</span> 
@@ -613,8 +612,15 @@
 
       if (oldName !== finalName) {
         entries.forEach(e => {
-          if (cleanStr(e.account) === cleanStr(oldName)) {
-            db.collection("payments").doc(e.docId).update({ account: finalName });
+          const isTarget = e.accountDocId 
+            ? (e.accountDocId === docId) 
+            : (cleanStr(e.account) === cleanStr(oldName) && (e.companyDocId === selectedCompanyDocId || !e.companyDocId));
+          if (isTarget) {
+            db.collection("payments").doc(e.docId).update({ 
+              account: finalName,
+              accountDocId: docId,
+              companyDocId: selectedCompanyDocId
+            });
           }
         });
       }
@@ -650,8 +656,8 @@
       db.collection("accounts").add({
         companyDocId: selectedCompanyDocId,
         name: name,
-        dashboardName: dashName, // optional, stays empty if empty
-        startDate: dateVal ? dateVal : "", // NO automatic today date!
+        dashboardName: dashName,
+        startDate: dateVal ? dateVal : "",
         order: nextOrder,
         createdAt: Date.now()
       });
@@ -706,6 +712,21 @@
       });
     }
 
+    // HELPER: Matches whether an entry belongs to an account isolated by Company & Account ID
+    function isEntryForAccount(e, targetAcc) {
+      if (!targetAcc) return false;
+      
+      // 1. Precise Match by Firestore Account Document ID
+      if (e.accountDocId) {
+        return e.accountDocId === targetAcc.docId;
+      }
+
+      // 2. Fallback Match for older database entries: Match both company AND account name
+      const matchCompany = !e.companyDocId || e.companyDocId === targetAcc.companyDocId || e.companyDocId === selectedCompanyDocId;
+      const matchAccName = cleanStr(e.account) === cleanStr(targetAcc.name);
+      return matchCompany && matchAccName;
+    }
+
     function renderBottomBreakdown() {
       const filteredAccounts = getFilteredAccounts();
       const currentAcc = filteredAccounts[selectedAccountIndex];
@@ -722,8 +743,8 @@
       const container = document.getElementById('bottom-entries-list');
       container.innerHTML = '';
 
-      const accNameClean = cleanStr(currentAcc.name);
-      const accEntries = entries.filter(e => cleanStr(e.account) === accNameClean);
+      // Strictly filter entries belonging ONLY to this specific account in this company
+      const accEntries = entries.filter(e => isEntryForAccount(e, currentAcc));
       
       let targetStatus = selectedBottomTab;
       const filtered = accEntries.filter(e => cleanStr(e.status) === cleanStr(targetStatus));
@@ -790,10 +811,9 @@
       const cutoffObj = new Date(y, m + 1, d, 0, 0, 0, 0);
 
       const now = new Date();
-      const accCleanName = cleanStr(acc.name);
 
       const d2dEntries = entries.filter(e => {
-        return cleanStr(e.account) === accCleanName && cleanStr(e.status) === 'date to date earning';
+        return isEntryForAccount(e, acc) && cleanStr(e.status) === 'date to date earning';
       });
 
       if (now.getTime() >= cutoffObj.getTime() && d2dEntries.length > 0) {
@@ -837,10 +857,12 @@
         }
       }
 
+      // Link explicitly using accountDocId and companyDocId
       db.collection("payments").add({
         amount: amount,
         currency: currency,
         account: currentAcc.name,
+        accountDocId: currentAcc.docId,
         companyDocId: selectedCompanyDocId,
         date: dateVal,
         time: timeVal,
