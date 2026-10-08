@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.6 - Custom Workflows</title>
+  <title>Payment Ledger v12.7 - Latest Entries On Top</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -120,7 +120,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v12.6</h1>
+    <h1 class="title">Payment Ledger v12.7</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -782,7 +782,6 @@
       
       let targetStatus = selectedBottomTab;
       
-      // Compatibility fallback: if old entries were saved under 'Ad Spend & Likes'
       const filtered = accEntries.filter(e => {
         const s = cleanStr(e.status);
         const target = cleanStr(targetStatus);
@@ -792,14 +791,17 @@
         return s === target;
       });
 
+      // SORTING FIX: REVERSE ORDER (NEWEST ON TOP)
       filtered.sort((a, b) => {
         const dateA = a.date || '0000-00-00';
         const dateB = b.date || '0000-00-00';
-        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        if (dateA !== dateB) return dateB.localeCompare(dateA); // Reverse Date
+        
         const timeA = a.time || '00:00';
         const timeB = b.time || '00:00';
-        if (timeA !== timeB) return timeA.localeCompare(timeB);
-        return (a.createdAt || 0) - (b.createdAt || 0);
+        if (timeA !== timeB) return timeB.localeCompare(timeA); // Reverse Time
+        
+        return (b.createdAt || 0) - (a.createdAt || 0); // Reverse Created Timestamp
       });
 
       const totalsByCurr = {};
