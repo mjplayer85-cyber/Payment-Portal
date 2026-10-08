@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.8 - Cents Decimal Fix</title>
+  <title>Payment Ledger v12.9 - Personal Udhar & Khata System</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -114,13 +114,14 @@
     .entry-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; background: var(--border-color); }
 
     .total-sum-box { background: var(--input-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 4px; margin-top: 16px; font-size: 13px; font-weight: bold; text-align: right; }
+    .net-hisab-banner { padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 12px; font-weight: bold; text-align: center; }
   </style>
 </head>
 <body>
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v12.8</h1>
+    <h1 class="title">Payment Ledger v12.9</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -224,8 +225,8 @@
       <div class="form-group" style="flex: 0.4; min-width: 90px;">
         <label>Currency</label>
         <select id="currency">
-          <option value="USD">USD ($)</option>
           <option value="PKR">PKR</option>
+          <option value="USD">USD ($)</option>
           <option value="CNY">CNY</option>
         </select>
       </div>
@@ -238,7 +239,7 @@
     <div class="form-row">
       <div class="form-group" id="grp-entry-date"><label>Date</label><input type="date" id="entry-date"></div>
       <div class="form-group" id="grp-entry-time"><label>Time</label><input type="time" id="entry-time"></div>
-      <div class="form-group"><label>Note / Reason / Details</label><input type="text" id="note" placeholder="Enter details..."></div>
+      <div class="form-group"><label>Note / Reason / Item Purchased</label><input type="text" id="note" placeholder="e.g. Bought shoes, Petrol, Advance..."></div>
     </div>
 
     <label>Entry Category / Status</label>
@@ -258,9 +259,12 @@
 
     <div id="bottom-entries-list"></div>
 
-    <div class="total-sum-box">
+    <div class="total-sum-box" id="total-sum-box-container">
       Selected Section Total: <span id="bottom-total-val" style="color: var(--accent-color);">PKR 0.00</span>
     </div>
+    
+    <!-- Auto Net Balance Banner for Personal / Khata Companies -->
+    <div id="personal-net-banner" style="display: none;"></div>
   </div>
 
   <script>
@@ -305,6 +309,16 @@
       'Bank Received (PKR)'
     ];
 
+    // Personal / Udhar / Family Statuses
+    const personalStatuses = [
+      'Borrowed / Taken',
+      'Paid Back / Returned',
+      'Advance / Given'
+    ];
+
+    // Keywords to auto-detect Personal Companies (e.g. Baba, Zain Jutt, Ghar, Khata, etc.)
+    const personalKeywords = ['baba', 'zain', 'jatt', 'personal', 'ghar', 'khata', 'udhar', 'hisaab', 'dost', 'bhai', 'family', 'loan', 'relative'];
+
     const now = new Date();
     document.getElementById('entry-date').valueAsDate = now;
     document.getElementById('entry-time').value = now.toTimeString().substring(0, 5);
@@ -313,7 +327,6 @@
       return (str || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
-    // STRICT 2 DECIMAL PLACES FIX (Includes trailing zeros like .90, .50)
     function formatNum(num) {
       const val = Number(num);
       if (isNaN(val)) return '0.00';
@@ -391,11 +404,26 @@
 
     function toggleTheme() { document.body.classList.toggle('light-theme'); }
 
-    // DYNAMIC WORKFLOW DETECTOR: Checks if selected company is 1998 Cam
+    // DYNAMIC WORKFLOW DETECTOR
+    function isPersonalCompany() {
+      const comp = companiesList.find(c => c.docId === selectedCompanyDocId);
+      if (comp && comp.name) {
+        const nameLower = comp.name.toLowerCase();
+        return personalKeywords.some(kw => nameLower.includes(kw));
+      }
+      return false;
+    }
+
     function getActiveStatuses() {
       const comp = companiesList.find(c => c.docId === selectedCompanyDocId);
-      if (comp && comp.name && comp.name.toLowerCase().includes('1998 cam')) {
-        return camStatuses;
+      if (comp && comp.name) {
+        const nameLower = comp.name.toLowerCase();
+        if (nameLower.includes('1998 cam')) {
+          return camStatuses;
+        }
+        if (isPersonalCompany()) {
+          return personalStatuses;
+        }
       }
       return standardStatuses;
     }
@@ -490,7 +518,7 @@
     }
 
     function addNewCompany() {
-      const name = prompt("نئی کمپنی / ایپ کا نام لکھیں (مثلاً 1998 Cam):");
+      const name = prompt("نئی کمپنی / پرسنل کھاتے کا نام لکھیں (مثلاً Baba, Zain Jutt, Ghar, 1998 Cam):");
       if (!name || !name.trim()) return;
 
       db.collection("companies").add({
@@ -506,7 +534,7 @@
       const comp = companiesList.find(c => c.docId === docId);
       if (!comp) return;
 
-      if (confirm(`کیا آپ واقعی کمپنی "${comp.name}" کو ڈیلیٹ کرنا چاہتے ہیں؟`)) {
+      if (confirm(`کیا آپ واقعی "${comp.name}" کو ڈیلیٹ کرنا چاہتے ہیں؟`)) {
         db.collection("companies").doc(docId).delete().then(() => {
           if (selectedCompanyDocId === docId) {
             selectedCompanyDocId = null;
@@ -540,7 +568,7 @@
       }
 
       if (filteredAccounts.length === 0) {
-        container.innerHTML = `<div style="font-size:12px; opacity:0.6; padding:10px;">اس کمپنی میں فی الحال کوئی اکاؤنٹ نہیں ہے۔ نیچے سے نیا اکاؤنٹ ایڈ کریں۔</div>`;
+        container.innerHTML = `<div style="font-size:12px; opacity:0.6; padding:10px;">اس جگہ فی الحال کوئی اکاؤنٹ نہیں ہے۔ نیچے سے نیا اکاؤنٹ ایڈ کریں۔</div>`;
       }
 
       filteredAccounts.forEach((acc, idx) => {
@@ -669,7 +697,7 @@
 
     function addNewAccount() {
       if (!selectedCompanyDocId) {
-        alert("پہلے اوپر سے کوئی کمپنی یا ایپ سلیکٹ کریں!");
+        alert("پہلے اوپر سے کوئی کمپنی یا کھاتا سلیکٹ کریں!");
         return;
       }
 
@@ -711,7 +739,7 @@
 
       activeStatuses.forEach(st => {
         const btn = document.createElement('button');
-        const isSpecial = st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
+        const isSpecial = st.includes('Borrowed') || st.includes('Advance') || st === 'Ad Spend' || st === 'PayPal Received ($)';
         btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
         btn.innerText = st;
         btn.onclick = () => {
@@ -769,10 +797,13 @@
       const filteredAccounts = getFilteredAccounts();
       const currentAcc = filteredAccounts[selectedAccountIndex];
 
+      const netBanner = document.getElementById('personal-net-banner');
+
       if (!currentAcc) {
         document.getElementById('selected-acc-heading').innerText = "No Account Selected";
         document.getElementById('bottom-entries-list').innerHTML = '';
         document.getElementById('bottom-total-val').innerText = '0.00';
+        netBanner.style.display = 'none';
         return;
       }
 
@@ -810,7 +841,7 @@
       const totalsByCurr = {};
 
       filtered.forEach(e => {
-        const curr = e.currency || 'USD';
+        const curr = e.currency || 'PKR';
         totalsByCurr[curr] = (totalsByCurr[curr] || 0) + e.amount;
         
         const symbol = getCurrencySymbol(curr);
@@ -841,6 +872,48 @@
       if (totalKeys.length === 0) totalStr = '0.00';
 
       document.getElementById('bottom-total-val').innerText = totalStr;
+
+      // AUTO CALCULATE HISAB BANNER FOR PERSONAL / KHATA COMPANIES
+      if (isPersonalCompany()) {
+        let totalBorrowed = 0;
+        let totalPaidBack = 0;
+        let totalAdvance = 0;
+
+        accEntries.forEach(e => {
+          const s = cleanStr(e.status);
+          const amt = parseFloat(e.amount) || 0;
+          if (s.includes('borrowed') || s.includes('taken') || s.includes('دینے')) {
+            totalBorrowed += amt;
+          } else if (s.includes('paid') || s.includes('returned') || s.includes('واپس')) {
+            totalPaidBack += amt;
+          } else if (s.includes('advance') || s.includes('given') || s.includes('ان کی طرف')) {
+            totalAdvance += amt;
+          }
+        });
+
+        // Net = Total Paid + Advance - Borrowed
+        const net = (totalPaidBack + totalAdvance) - totalBorrowed;
+
+        netBanner.style.display = 'block';
+        if (net < 0) {
+          netBanner.style.background = '#451a03';
+          netBanner.style.border = '1px solid #ef4444';
+          netBanner.style.color = '#ef4444';
+          netBanner.innerHTML = `⚠️ Aap ne abhi <strong>PKR ${formatNum(Math.abs(net))}</strong> dene hain (Pending Amount)`;
+        } else if (net > 0) {
+          netBanner.style.background = '#143820';
+          netBanner.style.border = '1px solid #22c55e';
+          netBanner.style.color = '#22c55e';
+          netBanner.innerHTML = `✅ Aap ke <strong>PKR ${formatNum(net)}</strong> un ki taraf hain (Extra Paid / Advance)`;
+        } else {
+          netBanner.style.background = '#1e3a8a';
+          netBanner.style.border = '1px solid #3b82f6';
+          netBanner.style.color = '#38bdf8';
+          netBanner.innerHTML = `🎉 Hisaab Bilkul Clear Hai! (0.00 PKR)`;
+        }
+      } else {
+        netBanner.style.display = 'none';
+      }
     }
 
     function addEntry() {
