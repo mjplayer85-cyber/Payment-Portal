@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v12.7 - Latest Entries On Top</title>
+  <title>Payment Ledger v12.8 - Cents Decimal Fix</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -120,7 +120,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v12.7</h1>
+    <h1 class="title">Payment Ledger v12.8</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -135,7 +135,7 @@
       <div class="calc-row">
         <div style="flex:1;">
           <label>PKR Amount</label>
-          <input type="number" id="usd-pkr-input" placeholder="e.g. 50000" oninput="calcFixedUSD()">
+          <input type="number" step="any" id="usd-pkr-input" placeholder="e.g. 50000" oninput="calcFixedUSD()">
         </div>
         <div style="flex:1;">
           <label>Converted USD ($)</label>
@@ -149,7 +149,7 @@
       <div class="calc-row" style="margin-bottom: 6px;">
         <div style="flex:1.5;">
           <label>Total Amount</label>
-          <input type="number" id="alloc-input-amount" placeholder="e.g. 100000" oninput="calcAllocations()">
+          <input type="number" step="any" id="alloc-input-amount" placeholder="e.g. 100000" oninput="calcAllocations()">
         </div>
         <div style="flex:1;">
           <label>Currency</label>
@@ -163,18 +163,18 @@
       <div class="alloc-grid">
         <div class="alloc-item">
           <span>10% Cut</span>
-          <strong id="alloc-10-cut">- PKR 0</strong>
-          <div class="net-val">Remaining: <br><span id="alloc-10-net">PKR 0</span></div>
+          <strong id="alloc-10-cut">- PKR 0.00</strong>
+          <div class="net-val">Remaining: <br><span id="alloc-10-net">PKR 0.00</span></div>
         </div>
         <div class="alloc-item">
           <span>20% Cut</span>
-          <strong id="alloc-20-cut">- PKR 0</strong>
-          <div class="net-val">Remaining: <br><span id="alloc-20-net">PKR 0</span></div>
+          <strong id="alloc-20-cut">- PKR 0.00</strong>
+          <div class="net-val">Remaining: <br><span id="alloc-20-net">PKR 0.00</span></div>
         </div>
         <div class="alloc-item">
           <span>30% Cut</span>
-          <strong id="alloc-30-cut" style="color: #ef4444;">- PKR 0</strong>
-          <div class="net-val" style="color: #38bdf8;">Net Receive: <br><span id="alloc-30-net">PKR 0</span></div>
+          <strong id="alloc-30-cut" style="color: #ef4444;">- PKR 0.00</strong>
+          <div class="net-val" style="color: #38bdf8;">Net Receive: <br><span id="alloc-30-net">PKR 0.00</span></div>
         </div>
       </div>
     </div>
@@ -220,7 +220,7 @@
     </div>
 
     <div class="form-row">
-      <div class="form-group"><label>Amount</label><input type="number" id="amount" value="0"></div>
+      <div class="form-group"><label>Amount</label><input type="number" step="any" id="amount" value="0"></div>
       <div class="form-group" style="flex: 0.4; min-width: 90px;">
         <label>Currency</label>
         <select id="currency">
@@ -259,7 +259,7 @@
     <div id="bottom-entries-list"></div>
 
     <div class="total-sum-box">
-      Selected Section Total: <span id="bottom-total-val" style="color: var(--accent-color);">PKR 0</span>
+      Selected Section Total: <span id="bottom-total-val" style="color: var(--accent-color);">PKR 0.00</span>
     </div>
   </div>
 
@@ -313,8 +313,11 @@
       return (str || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
+    // STRICT 2 DECIMAL PLACES FIX (Includes trailing zeros like .90, .50)
     function formatNum(num) {
-      return Number(num).toLocaleString('en-US', { maximumFractionDigits: 2 });
+      const val = Number(num);
+      if (isNaN(val)) return '0.00';
+      return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function getCurrencySymbol(curr) {
@@ -769,7 +772,7 @@
       if (!currentAcc) {
         document.getElementById('selected-acc-heading').innerText = "No Account Selected";
         document.getElementById('bottom-entries-list').innerHTML = '';
-        document.getElementById('bottom-total-val').innerText = '0';
+        document.getElementById('bottom-total-val').innerText = '0.00';
         return;
       }
 
@@ -791,17 +794,17 @@
         return s === target;
       });
 
-      // SORTING FIX: REVERSE ORDER (NEWEST ON TOP)
+      // SORTING ORDER: NEWEST ON TOP
       filtered.sort((a, b) => {
         const dateA = a.date || '0000-00-00';
         const dateB = b.date || '0000-00-00';
-        if (dateA !== dateB) return dateB.localeCompare(dateA); // Reverse Date
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
         
         const timeA = a.time || '00:00';
         const timeB = b.time || '00:00';
-        if (timeA !== timeB) return timeB.localeCompare(timeA); // Reverse Time
+        if (timeA !== timeB) return timeB.localeCompare(timeA);
         
-        return (b.createdAt || 0) - (a.createdAt || 0); // Reverse Created Timestamp
+        return (b.createdAt || 0) - (a.createdAt || 0);
       });
 
       const totalsByCurr = {};
@@ -835,7 +838,7 @@
       const totalKeys = Object.keys(totalsByCurr);
       let totalStr = totalKeys.map(c => `${getCurrencySymbol(c)} ${formatNum(totalsByCurr[c])}`).join(' | ');
 
-      if (totalKeys.length === 0) totalStr = '0';
+      if (totalKeys.length === 0) totalStr = '0.00';
 
       document.getElementById('bottom-total-val').innerText = totalStr;
     }
