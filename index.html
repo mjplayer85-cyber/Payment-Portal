@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v13.8 - Specific Account Statuses</title>
+  <title>Payment Ledger v13.9 - Mugees Editing Fix</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v13.8</h1>
+    <h1 class="title">Payment Ledger v13.9</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -423,26 +423,17 @@
         }
       }
 
-      // MUGEES EDITING: Send Transaction removed, Binance Payment & My Payment included
-      if (currentAcc && cleanStr(currentAcc.name).includes('mugees editing')) {
+      // MUGEES EDITING UNDER TIKTOK ACCOUNTS: Send Transaction removed completely
+      if (comp && cleanStr(comp.name).includes('tiktok accounts') && currentAcc && cleanStr(currentAcc.name).includes('mugees editing')) {
         return [
           'Date To Date Earning',
           'Dashboard',
           'Available',
-          'Monthly Income',
-          'Binance Payment',
-          'My Payment'
+          'Monthly Income'
         ];
       }
 
-      // OTHER ACCOUNTS: Binance Payment and My Payment removed, Send Transaction included
-      return [
-        'Date To Date Earning',
-        'Dashboard',
-        'Available',
-        'Monthly Income',
-        'Send Transaction'
-      ];
+      return standardStatuses;
     }
 
     db.collection("companies").onSnapshot((snapshot) => {
