@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v14.6 - Strict Single Account Only</title>
+  <title>Payment Ledger v14.7 - Fixed Personal Net Hisab Logic</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v14.6</h1>
+    <h1 class="title">Payment Ledger v14.7</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -426,7 +426,6 @@
       // STRICT EXACT MATCHING FOR ONLY "Mughees Editing" OR "Mugees Editing"
       if (currentAcc && currentAcc.name) {
         const accClean = cleanStr(currentAcc.name);
-        // Will ONLY match if the exact full name is "mughees editing" or "mugees editing"
         if (accClean === 'mughees editing' || accClean === 'mugees editing') {
           return [
             'Date To Date Earning',
@@ -881,7 +880,7 @@
 
       document.getElementById('bottom-total-val').innerText = totalStr;
 
-      // NET HISAB BANNER FOR PERSONAL KHATA
+      // CORRECTED NET HISAB BANNER FOR PERSONAL KHATA
       if (isPersonalCompany() && netBanner) {
         let totalBorrowed = 0;
         let totalPaidBack = 0;
@@ -899,6 +898,7 @@
           }
         });
 
+        // FORMULA: Total Remaining to Pay = Borrowed - Paid Back - Advance
         const remainingToPay = totalBorrowed - totalPaidBack - totalAdvance;
 
         netBanner.style.display = 'block';
@@ -911,7 +911,7 @@
           netBanner.style.background = '#143820';
           netBanner.style.border = '1px solid #22c55e';
           netBanner.style.color = '#22c55e';
-          netBanner.innerHTML = `✅ Aap ke <strong>PKR ${formatNum(Math.abs(remainingToPay))}</strong> un ki taraf hain (Extra Paid / Advance)`;
+          netBanner.innerHTML = `✅ Aap ke <strong>PKR ${formatNum(Math.abs(remainingToPay))}</strong> un ki taraf hain (Advance / Extra Paid)`;
         } else {
           netBanner.style.background = '#1e3a8a';
           netBanner.style.border = '1px solid #3b82f6';
