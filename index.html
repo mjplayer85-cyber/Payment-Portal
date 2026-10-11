@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v14.3 - Fixed Mughees Editing Rule</title>
+  <title>Payment Ledger v14.6 - Strict Single Account Only</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v14.3</h1>
+    <h1 class="title">Payment Ledger v14.6</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -423,11 +423,11 @@
         }
       }
 
-      // STRICT MUGHEES / MUNEEB EDITING ACCOUNT RULE
+      // STRICT EXACT MATCHING FOR ONLY "Mughees Editing" OR "Mugees Editing"
       if (currentAcc && currentAcc.name) {
         const accClean = cleanStr(currentAcc.name);
-        // Matches "mughee", "mugees", "muneeb", "editing"
-        if (accClean.includes('mughee') || accClean.includes('mugees') || accClean.includes('muneeb')) {
+        // Will ONLY match if the exact full name is "mughees editing" or "mugees editing"
+        if (accClean === 'mughees editing' || accClean === 'mugees editing') {
           return [
             'Date To Date Earning',
             'Dashboard',
@@ -439,7 +439,7 @@
         }
       }
 
-      // ALL OTHER ACCOUNTS: Standard list with Send Transaction (No Binance / My Payment)
+      // EVERY OTHER ACCOUNT (Mughees Editor, Mughees Editx, Its Rumi, etc.)
       return standardStatuses;
     }
 
