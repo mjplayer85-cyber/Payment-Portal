@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v13.9 - Mugees Editing Fix</title>
+  <title>Payment Ledger v14.0 - Fixed Duplicate & Status Rules</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v13.9</h1>
+    <h1 class="title">Payment Ledger v14.0</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -423,16 +423,19 @@
         }
       }
 
-      // MUGEES EDITING UNDER TIKTOK ACCOUNTS: Send Transaction removed completely
-      if (comp && cleanStr(comp.name).includes('tiktok accounts') && currentAcc && cleanStr(currentAcc.name).includes('mugees editing')) {
+      // MUGEES EDITING: Send Transaction removed, Binance Payment & My Payment included
+      if (currentAcc && cleanStr(currentAcc.name).includes('mugees editing')) {
         return [
           'Date To Date Earning',
           'Dashboard',
           'Available',
-          'Monthly Income'
+          'Monthly Income',
+          'Binance Payment',
+          'My Payment'
         ];
       }
 
+      // OTHER ACCOUNTS: Standard status list
       return standardStatuses;
     }
 
@@ -566,23 +569,12 @@
 
       let filteredAccounts = getFilteredAccounts();
 
-      if (filteredAccounts.length === 0 && selectedCompanyDocId) {
-        const currentComp = companiesList.find(c => c.docId === selectedCompanyDocId);
-        const accName = currentComp ? currentComp.name : 'Main Account';
-        
-        db.collection("accounts").add({
-          companyDocId: selectedCompanyDocId,
-          name: accName,
-          dashboardName: "Main",
-          startDate: "",
-          order: 0,
-          createdAt: Date.now()
-        });
-        return;
-      }
-
       if (selectedAccountIndex >= filteredAccounts.length) {
         selectedAccountIndex = Math.max(0, filteredAccounts.length - 1);
+      }
+
+      if (filteredAccounts.length === 0) {
+        container.innerHTML = `<div style="font-size:12px; opacity:0.6; padding:10px;">اس کمپنی میں کوئی اکاؤنٹ نہیں ہے۔ نیچے سے نیا اکاؤنٹ ایڈ کریں۔</div>`;
       }
 
       filteredAccounts.forEach((acc, idx) => {
