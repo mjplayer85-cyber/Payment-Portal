@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v14.9 - Simplified Personal Buttons & Banner</title>
+  <title>Payment Ledger v15.0 - Remaining USD Added</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v14.9</h1>
+    <h1 class="title">Payment Ledger v15.0</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -220,8 +220,8 @@
       <div class="form-group" style="flex: 0.4; min-width: 90px;">
         <label>Currency</label>
         <select id="currency">
-          <option value="PKR">PKR</option>
           <option value="USD">USD ($)</option>
+          <option value="PKR">PKR</option>
           <option value="CNY">CNY</option>
         </select>
       </div>
@@ -284,12 +284,14 @@
     let currentStatus = '';
     let selectedBottomTab = '';
 
+    // STANDARD STATUSES FOR ALL OTHER ACCOUNTS (INCLUDING REMAINING USD)
     const standardStatuses = [
       'Date To Date Earning',
       'Dashboard',
       'Available',
       'Monthly Income',
-      'Send Transaction'
+      'Send Transaction',
+      'Remaining USD ($)'
     ];
 
     const camStatuses = [
@@ -299,7 +301,6 @@
       'Bank Received (PKR)'
     ];
 
-    // SHORT & SIMPLE PERSONAL STATUSES
     const personalStatuses = [
       'Udhar',
       'Paid',
@@ -424,7 +425,7 @@
         }
       }
 
-      // STRICT EXACT MATCHING FOR ONLY "Mughees Editing" OR "Mugees Editing"
+      // STRICT EXACT MATCHING ONLY FOR "Mughees Editing" OR "Mugees Editing"
       if (currentAcc && currentAcc.name) {
         const accClean = cleanStr(currentAcc.name);
         if (accClean === 'mughees editing' || accClean === 'mugees editing') {
@@ -439,7 +440,7 @@
         }
       }
 
-      // EVERY OTHER ACCOUNT
+      // ALL OTHER TIKTOK ACCOUNTS (Mughees Editor, Its Rumi, Mughees Editx, Rumi Editing, etc.)
       return standardStatuses;
     }
 
@@ -748,7 +749,7 @@
 
       activeStatuses.forEach(st => {
         const btn = document.createElement('button');
-        const isSpecial = st === 'Udhar' || st === 'Paid' || st === 'Advance' || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
+        const isSpecial = st === 'Udhar' || st === 'Paid' || st === 'Advance' || st === 'Remaining USD ($)' || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
         btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
         btn.innerText = st;
         btn.onclick = () => {
@@ -888,7 +889,7 @@
 
       document.getElementById('bottom-total-val').innerText = totalStr;
 
-      // CUSTOMIZED BANNERS BASED ON ACTIVE TAB
+      // CUSTOM BANNERS (FOR PERSONAL KHATA & REMAINING USD)
       if (isPersonalCompany() && netBanner) {
         let totalBorrowed = 0;
         let totalPaidBack = 0;
@@ -911,14 +912,12 @@
         netBanner.style.display = 'block';
 
         if (selectedBottomTab === 'Paid') {
-          // Inside Paid Tab: Simply show how much has been paid
           netBanner.style.background = '#143820';
           netBanner.style.border = '1px solid #22c55e';
           netBanner.style.color = '#22c55e';
           netBanner.innerHTML = `✅ Aap ab tak Total <strong>PKR ${formatNum(totalPaidBack)}</strong> pay kar chuke hain.`;
         } 
         else if (selectedBottomTab === 'Udhar') {
-          // Inside Udhar Tab: Show how much is remaining to pay
           if (pendingToPay > 0) {
             netBanner.style.background = '#451a03';
             netBanner.style.border = '1px solid #ef4444';
@@ -932,13 +931,20 @@
           }
         } 
         else if (selectedBottomTab === 'Advance') {
-          // Inside Advance Tab: Show extra/advance amount
           netBanner.style.background = '#1e3a8a';
           netBanner.style.border = '1px solid #3b82f6';
           netBanner.style.color = '#38bdf8';
           netBanner.innerHTML = `ℹ️ Advance / Extra Balance: <strong>PKR ${formatNum(totalAdvance)}</strong>`;
         }
-      } else if (netBanner) {
+      } 
+      else if (selectedBottomTab === 'Remaining USD ($)' && netBanner) {
+        netBanner.style.display = 'block';
+        netBanner.style.background = '#1b2838';
+        netBanner.style.border = '1px solid #38bdf8';
+        netBanner.style.color = '#38bdf8';
+        netBanner.innerHTML = `💵 Total Pending Balance: <strong>$ ${formatNum(totalsByCurr['USD'] || 0)}</strong> (Real Payment Remaining)`;
+      }
+      else if (netBanner) {
         netBanner.style.display = 'none';
       }
     }
