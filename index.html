@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v15.5 - PKR Received Added for Rumi Editing</title>
+  <title>Payment Ledger v15.6 - Specific Buttons for Rumi Editing Only</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v15.5</h1>
+    <h1 class="title">Payment Ledger v15.6</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -475,22 +475,22 @@
           ];
         }
 
-        // RUMI EDITING ACCOUNT: Includes "PKR Received" AND "10% Cut"
-        if (accClean.includes('rumi') || accClean.includes('rummi')) {
+        // STRICT MATCH ONLY FOR "Rumi Editing" / "Rummi Editing"
+        if (accClean === 'rumi editing' || accClean === 'rummi editing') {
           return [
             'Date To Date Earning',
             'Dashboard',
             'Available',
             'Monthly Income',
-            'PKR Received',
             'Send Transaction',
             'Remaining USD ($)',
+            'PKR Received',
             '10% Cut'
           ];
         }
       }
 
-      // ALL OTHER ACCOUNTS
+      // ALL OTHER ACCOUNTS (Including "Its Rumi", "Mughees Editx", etc.)
       return standardStatuses;
     }
 
