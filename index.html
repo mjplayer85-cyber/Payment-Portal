@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v14.8 - Clear Personal Khata Labels & Logic</title>
+  <title>Payment Ledger v14.9 - Simplified Personal Buttons & Banner</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v14.8</h1>
+    <h1 class="title">Payment Ledger v14.9</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -299,11 +299,11 @@
       'Bank Received (PKR)'
     ];
 
-    // UPDATED PERSONAL STATUSES (REMOVED 'Returned' TO AVOID CONFUSION)
+    // SHORT & SIMPLE PERSONAL STATUSES
     const personalStatuses = [
-      'Borrowed / Taken',
-      'Paid Back',
-      'Advance / Given'
+      'Udhar',
+      'Paid',
+      'Advance'
     ];
 
     const personalKeywords = ['baba', 'zain', 'jutt', 'personal', 'family', 'khata', 'ghar', 'udhar', 'hisaab', 'dost', 'bhai', 'loan'];
@@ -439,7 +439,7 @@
         }
       }
 
-      // EVERY OTHER ACCOUNT (Mughees Editor, Mughees Editx, Its Rumi, etc.)
+      // EVERY OTHER ACCOUNT
       return standardStatuses;
     }
 
@@ -748,7 +748,7 @@
 
       activeStatuses.forEach(st => {
         const btn = document.createElement('button');
-        const isSpecial = st.includes('Borrowed') || st.includes('Advance') || st.includes('Paid Back') || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
+        const isSpecial = st === 'Udhar' || st === 'Paid' || st === 'Advance' || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
         btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
         btn.innerText = st;
         btn.onclick = () => {
@@ -828,12 +828,15 @@
       const filtered = accEntries.filter(e => {
         const s = cleanStr(e.status);
         const target = cleanStr(targetStatus);
-        if (target === 'ad spend') {
-          return s === 'ad spend' || s === 'ad spend & likes';
+        
+        if (target === 'udhar') {
+          return s === 'udhar' || s.includes('borrowed') || s.includes('taken');
         }
-        // Support old entries marked as "Paid Back / Returned" or new "Paid Back"
-        if (target === 'paid back') {
-          return s === 'paid back' || s === 'paid back / returned';
+        if (target === 'paid') {
+          return s === 'paid' || s.includes('paid back') || s.includes('returned');
+        }
+        if (target === 'advance') {
+          return s === 'advance' || s.includes('given');
         }
         return s === target;
       });
@@ -885,7 +888,7 @@
 
       document.getElementById('bottom-total-val').innerText = totalStr;
 
-      // PERFECTED NET HISAB BANNER FOR PERSONAL KHATA
+      // CUSTOMIZED BANNERS BASED ON ACTIVE TAB
       if (isPersonalCompany() && netBanner) {
         let totalBorrowed = 0;
         let totalPaidBack = 0;
@@ -894,34 +897,46 @@
         accEntries.forEach(e => {
           const s = cleanStr(e.status);
           const amt = parseFloat(e.amount) || 0;
-          if (s.includes('borrowed') || s.includes('taken')) {
+          if (s === 'udhar' || s.includes('borrowed') || s.includes('taken')) {
             totalBorrowed += amt;
-          } else if (s.includes('paid')) { // Matches "paid back" and "paid back / returned"
+          } else if (s === 'paid' || s.includes('paid back') || s.includes('returned')) {
             totalPaidBack += amt;
-          } else if (s.includes('advance') || s.includes('given')) {
+          } else if (s === 'advance' || s.includes('given')) {
             totalAdvance += amt;
           }
         });
 
-        // Net Balance = Borrowed (لیے) - Paid Back (ادا کیے) - Advance (ایڈوانس دیے)
-        const remainingToPay = totalBorrowed - totalPaidBack - totalAdvance;
+        const pendingToPay = totalBorrowed - totalPaidBack;
 
         netBanner.style.display = 'block';
-        if (remainingToPay > 0) {
-          netBanner.style.background = '#451a03';
-          netBanner.style.border = '1px solid #ef4444';
-          netBanner.style.color = '#ef4444';
-          netBanner.innerHTML = `⚠️ Aap ne abhi <strong>PKR ${formatNum(remainingToPay)}</strong> dene hain (Pending Balance)`;
-        } else if (remainingToPay < 0) {
+
+        if (selectedBottomTab === 'Paid') {
+          // Inside Paid Tab: Simply show how much has been paid
           netBanner.style.background = '#143820';
           netBanner.style.border = '1px solid #22c55e';
           netBanner.style.color = '#22c55e';
-          netBanner.innerHTML = `✅ Aap ke <strong>PKR ${formatNum(Math.abs(remainingToPay))}</strong> un ki taraf hain (Advance / Extra Paid)`;
-        } else {
+          netBanner.innerHTML = `✅ Aap ab tak Total <strong>PKR ${formatNum(totalPaidBack)}</strong> pay kar chuke hain.`;
+        } 
+        else if (selectedBottomTab === 'Udhar') {
+          // Inside Udhar Tab: Show how much is remaining to pay
+          if (pendingToPay > 0) {
+            netBanner.style.background = '#451a03';
+            netBanner.style.border = '1px solid #ef4444';
+            netBanner.style.color = '#ef4444';
+            netBanner.innerHTML = `⚠️ Total Udhar PKR ${formatNum(totalBorrowed)} mein se aap ne abhi <strong>PKR ${formatNum(pendingToPay)}</strong> dene hain (Pending Balance)`;
+          } else {
+            netBanner.style.background = '#1e3a8a';
+            netBanner.style.border = '1px solid #3b82f6';
+            netBanner.style.color = '#38bdf8';
+            netBanner.innerHTML = `🎉 Udhar Bilkul Clear Hai! (0 PKR Remaining)`;
+          }
+        } 
+        else if (selectedBottomTab === 'Advance') {
+          // Inside Advance Tab: Show extra/advance amount
           netBanner.style.background = '#1e3a8a';
           netBanner.style.border = '1px solid #3b82f6';
           netBanner.style.color = '#38bdf8';
-          netBanner.innerHTML = `🎉 Hisaab Bilkul Clear Hai! (0 PKR)`;
+          netBanner.innerHTML = `ℹ️ Advance / Extra Balance: <strong>PKR ${formatNum(totalAdvance)}</strong>`;
         }
       } else if (netBanner) {
         netBanner.style.display = 'none';
