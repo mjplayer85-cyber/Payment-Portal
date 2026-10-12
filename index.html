@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v15.6 - Specific Buttons for Rumi Editing Only</title>
+  <title>Payment Ledger v15.7 - Remaining USD For Rumi Editing Only</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v15.6</h1>
+    <h1 class="title">Payment Ledger v15.7</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -284,13 +284,13 @@
     let currentStatus = '';
     let selectedBottomTab = '';
 
+    // STANDARD STATUSES FOR ALL OTHER ACCOUNTS (WITHOUT REMAINING USD)
     const standardStatuses = [
       'Date To Date Earning',
       'Dashboard',
       'Available',
       'Monthly Income',
-      'Send Transaction',
-      'Remaining USD ($)'
+      'Send Transaction'
     ];
 
     const camStatuses = [
