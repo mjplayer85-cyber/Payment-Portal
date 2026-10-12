@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v14.7 - Fixed Personal Net Hisab Logic</title>
+  <title>Payment Ledger v14.8 - Clear Personal Khata Labels & Logic</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v14.7</h1>
+    <h1 class="title">Payment Ledger v14.8</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -299,9 +299,10 @@
       'Bank Received (PKR)'
     ];
 
+    // UPDATED PERSONAL STATUSES (REMOVED 'Returned' TO AVOID CONFUSION)
     const personalStatuses = [
       'Borrowed / Taken',
-      'Paid Back / Returned',
+      'Paid Back',
       'Advance / Given'
     ];
 
@@ -747,7 +748,7 @@
 
       activeStatuses.forEach(st => {
         const btn = document.createElement('button');
-        const isSpecial = st.includes('Borrowed') || st.includes('Advance') || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
+        const isSpecial = st.includes('Borrowed') || st.includes('Advance') || st.includes('Paid Back') || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
         btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
         btn.innerText = st;
         btn.onclick = () => {
@@ -830,6 +831,10 @@
         if (target === 'ad spend') {
           return s === 'ad spend' || s === 'ad spend & likes';
         }
+        // Support old entries marked as "Paid Back / Returned" or new "Paid Back"
+        if (target === 'paid back') {
+          return s === 'paid back' || s === 'paid back / returned';
+        }
         return s === target;
       });
 
@@ -880,7 +885,7 @@
 
       document.getElementById('bottom-total-val').innerText = totalStr;
 
-      // CORRECTED NET HISAB BANNER FOR PERSONAL KHATA
+      // PERFECTED NET HISAB BANNER FOR PERSONAL KHATA
       if (isPersonalCompany() && netBanner) {
         let totalBorrowed = 0;
         let totalPaidBack = 0;
@@ -891,14 +896,14 @@
           const amt = parseFloat(e.amount) || 0;
           if (s.includes('borrowed') || s.includes('taken')) {
             totalBorrowed += amt;
-          } else if (s.includes('paid') || s.includes('returned')) {
+          } else if (s.includes('paid')) { // Matches "paid back" and "paid back / returned"
             totalPaidBack += amt;
           } else if (s.includes('advance') || s.includes('given')) {
             totalAdvance += amt;
           }
         });
 
-        // FORMULA: Total Remaining to Pay = Borrowed - Paid Back - Advance
+        // Net Balance = Borrowed (لیے) - Paid Back (ادا کیے) - Advance (ایڈوانس دیے)
         const remainingToPay = totalBorrowed - totalPaidBack - totalAdvance;
 
         netBanner.style.display = 'block';
