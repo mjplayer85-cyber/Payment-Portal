@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v15.2 - Two-Way USD/PKR Calculator</title>
+  <title>Payment Ledger v15.3 - 10% Cut for Rumi Editing Only</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v15.2</h1>
+    <h1 class="title">Payment Ledger v15.3</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -379,12 +379,7 @@
     // HELPER FUNCTION: CLEAN DECIMAL FORMATTER FOR CENTS
     function formatSmartDecimal(val) {
       if (isNaN(val) || val === 0) return '0';
-      
-      // Round up to max 2 decimal places
       let str = val.toFixed(2);
-      
-      // Strip trailing zero if not meaningful (e.g. 1.50 becomes 1.5 unless exact cent)
-      // If it ends with .00, remove decimal completely
       if (str.endsWith('.00')) {
         return Math.round(val).toString();
       }
@@ -465,9 +460,10 @@
         }
       }
 
-      // STRICT EXACT MATCHING ONLY FOR "Mughees Editing" OR "Mugees Editing"
       if (currentAcc && currentAcc.name) {
         const accClean = cleanStr(currentAcc.name);
+        
+        // STRICT MATCH FOR "Mughees Editing" OR "Mugees Editing"
         if (accClean === 'mughees editing' || accClean === 'mugees editing') {
           return [
             'Date To Date Earning',
@@ -478,9 +474,22 @@
             'My Payment'
           ];
         }
+
+        // STRICT MATCH FOR ONLY "Rumi Editing" OR "Rumi Edit" (10% Cut Button Included)
+        if (accClean === 'rumi editing' || accClean === 'rumi edit') {
+          return [
+            'Date To Date Earning',
+            'Dashboard',
+            'Available',
+            'Monthly Income',
+            'Send Transaction',
+            'Remaining USD ($)',
+            '10% Cut'
+          ];
+        }
       }
 
-      // ALL OTHER TIKTOK ACCOUNTS
+      // ALL OTHER ACCOUNTS
       return standardStatuses;
     }
 
@@ -789,7 +798,7 @@
 
       activeStatuses.forEach(st => {
         const btn = document.createElement('button');
-        const isSpecial = st === 'Udhar' || st === 'Paid' || st === 'Advance' || st === 'Remaining USD ($)' || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
+        const isSpecial = st === 'Udhar' || st === 'Paid' || st === 'Advance' || st === 'Remaining USD ($)' || st === '10% Cut' || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
         btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
         btn.innerText = st;
         btn.onclick = () => {
@@ -929,7 +938,7 @@
 
       document.getElementById('bottom-total-val').innerText = totalStr;
 
-      // CUSTOM BANNERS (FOR PERSONAL KHATA & REMAINING USD)
+      // CUSTOM BANNERS (FOR PERSONAL KHATA & REMAINING USD / 10% CUT)
       if (isPersonalCompany() && netBanner) {
         let totalBorrowed = 0;
         let totalPaidBack = 0;
@@ -983,6 +992,13 @@
         netBanner.style.border = '1px solid #38bdf8';
         netBanner.style.color = '#38bdf8';
         netBanner.innerHTML = `💵 Total Pending Balance: <strong>$ ${formatNum(totalsByCurr['USD'] || 0)}</strong> (Real Payment Remaining)`;
+      }
+      else if (selectedBottomTab === '10% Cut' && netBanner) {
+        netBanner.style.display = 'block';
+        netBanner.style.background = '#143820';
+        netBanner.style.border = '1px solid #22c55e';
+        netBanner.style.color = '#22c55e';
+        netBanner.innerHTML = `✂️ Total 10% Cut Deduction: <strong>$ ${formatNum(totalsByCurr['USD'] || 0)}</strong>`;
       }
       else if (netBanner) {
         netBanner.style.display = 'none';
