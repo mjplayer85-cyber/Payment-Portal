@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v15.0 - Remaining USD Added</title>
+  <title>Payment Ledger v15.2 - Two-Way USD/PKR Calculator</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v15.0</h1>
+    <h1 class="title">Payment Ledger v15.2</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -132,15 +132,15 @@
   <!-- Calculators Section -->
   <div class="calc-container">
     <div class="calc-box">
-      <div class="calc-title"><span>💵 Fixed USD Calculator (Rate: 275)</span></div>
+      <div class="calc-title"><span>💵 Fixed USD / PKR Calculator (Rate: 275)</span></div>
       <div class="calc-row">
         <div style="flex:1;">
           <label>PKR Amount</label>
-          <input type="number" step="any" id="usd-pkr-input" placeholder="e.g. 50000" oninput="calcFixedUSD()">
+          <input type="number" step="any" id="usd-pkr-input" placeholder="e.g. 50000" oninput="calcPkrToUsd()">
         </div>
         <div style="flex:1;">
-          <label>Converted USD ($)</label>
-          <input type="text" id="usd-res-output" readonly style="color: var(--accent-color); font-weight: bold;">
+          <label>USD ($) Amount</label>
+          <input type="number" step="any" id="usd-res-output" placeholder="e.g. 100" oninput="calcUsdToPkr()" style="color: var(--accent-color); font-weight: bold;">
         </div>
       </div>
     </div>
@@ -284,7 +284,6 @@
     let currentStatus = '';
     let selectedBottomTab = '';
 
-    // STANDARD STATUSES FOR ALL OTHER ACCOUNTS (INCLUDING REMAINING USD)
     const standardStatuses = [
       'Date To Date Earning',
       'Dashboard',
@@ -377,10 +376,51 @@
       document.getElementById('grp-entry-time').style.display = show ? 'block' : 'none';
     }
 
-    function calcFixedUSD() {
-      const pkr = parseFloat(document.getElementById('usd-pkr-input').value) || 0;
+    // HELPER FUNCTION: CLEAN DECIMAL FORMATTER FOR CENTS
+    function formatSmartDecimal(val) {
+      if (isNaN(val) || val === 0) return '0';
+      
+      // Round up to max 2 decimal places
+      let str = val.toFixed(2);
+      
+      // Strip trailing zero if not meaningful (e.g. 1.50 becomes 1.5 unless exact cent)
+      // If it ends with .00, remove decimal completely
+      if (str.endsWith('.00')) {
+        return Math.round(val).toString();
+      }
+      return str;
+    }
+
+    // TWO-WAY CALCULATOR: PKR TO USD
+    function calcPkrToUsd() {
+      const pkrVal = document.getElementById('usd-pkr-input').value;
+      if (pkrVal === '' || pkrVal === null) {
+        document.getElementById('usd-res-output').value = '';
+        return;
+      }
+      const pkr = parseFloat(pkrVal) || 0;
+      if (pkr === 0) {
+        document.getElementById('usd-res-output').value = '0';
+        return;
+      }
       const usd = pkr / 275;
-      document.getElementById('usd-res-output').value = `$ ${formatNum(usd)}`;
+      document.getElementById('usd-res-output').value = formatSmartDecimal(usd);
+    }
+
+    // TWO-WAY CALCULATOR: USD TO PKR
+    function calcUsdToPkr() {
+      const usdVal = document.getElementById('usd-res-output').value;
+      if (usdVal === '' || usdVal === null) {
+        document.getElementById('usd-pkr-input').value = '';
+        return;
+      }
+      const usd = parseFloat(usdVal) || 0;
+      if (usd === 0) {
+        document.getElementById('usd-pkr-input').value = '0';
+        return;
+      }
+      const pkr = usd * 275;
+      document.getElementById('usd-pkr-input').value = formatSmartDecimal(pkr);
     }
 
     function calcAllocations() {
@@ -392,11 +432,11 @@
       const cut10 = amt * 0.10;
       const cut20 = amt * 0.20;
 
-      document.getElementById('alloc-10-cut').innerText = `- ${sym} ${formatNum(cut10.toFixed(2))}`;
-      document.getElementById('alloc-20-cut').innerText = `- ${sym} ${formatNum(cut20.toFixed(2))}`;
+      document.getElementById('alloc-10-cut').innerText = `- ${sym} ${formatNum(formatSmartDecimal(cut10))}`;
+      document.getElementById('alloc-20-cut').innerText = `- ${sym} ${formatNum(formatSmartDecimal(cut20))}`;
 
-      document.getElementById('alloc-10-net').innerText = `${sym} ${formatNum((amt - cut10).toFixed(2))}`;
-      document.getElementById('alloc-20-net').innerText = `${sym} ${formatNum((amt - cut20).toFixed(2))}`;
+      document.getElementById('alloc-10-net').innerText = `${sym} ${formatNum(formatSmartDecimal(amt - cut10))}`;
+      document.getElementById('alloc-20-net').innerText = `${sym} ${formatNum(formatSmartDecimal(amt - cut20))}`;
     }
 
     function toggleTheme() { document.body.classList.toggle('light-theme'); }
@@ -440,7 +480,7 @@
         }
       }
 
-      // ALL OTHER TIKTOK ACCOUNTS (Mughees Editor, Its Rumi, Mughees Editx, Rumi Editing, etc.)
+      // ALL OTHER TIKTOK ACCOUNTS
       return standardStatuses;
     }
 
