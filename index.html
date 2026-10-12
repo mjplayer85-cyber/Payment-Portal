@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v15.3 - 10% Cut for Rumi Editing Only</title>
+  <title>Payment Ledger v15.4 - 10% Cut for Rumi Editing Account</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v15.3</h1>
+    <h1 class="title">Payment Ledger v15.4</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -475,8 +475,8 @@
           ];
         }
 
-        // STRICT MATCH FOR ONLY "Rumi Editing" OR "Rumi Edit" (10% Cut Button Included)
-        if (accClean === 'rumi editing' || accClean === 'rumi edit') {
+        // FLEXIBLE MATCH FOR RUMI EDITING ACCOUNT (10% Cut Included)
+        if (accClean.includes('rumi') || accClean.includes('rummi')) {
           return [
             'Date To Date Earning',
             'Dashboard',
