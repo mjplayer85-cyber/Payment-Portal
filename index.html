@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Ledger v15.7 - Remaining USD For Rumi Editing Only</title>
+  <title>Payment Ledger v15.8 - Independent Udhar & Paid Calculation</title>
   <!-- Firebase Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -121,7 +121,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1 class="title">Payment Ledger v15.7</h1>
+    <h1 class="title">Payment Ledger v15.8</h1>
     <div class="header-right">
       <div class="subtext">Cloud Live Sync Active ☁️</div>
       <button class="btn-toggle" onclick="exportData()">💾 Backup</button>
@@ -284,7 +284,6 @@
     let currentStatus = '';
     let selectedBottomTab = '';
 
-    // STANDARD STATUSES FOR ALL OTHER ACCOUNTS (WITHOUT REMAINING USD)
     const standardStatuses = [
       'Date To Date Earning',
       'Dashboard',
@@ -376,7 +375,6 @@
       document.getElementById('grp-entry-time').style.display = show ? 'block' : 'none';
     }
 
-    // HELPER FUNCTION: CLEAN DECIMAL FORMATTER FOR CENTS
     function formatSmartDecimal(val) {
       if (isNaN(val) || val === 0) return '0';
       let str = val.toFixed(2);
@@ -386,7 +384,6 @@
       return str;
     }
 
-    // TWO-WAY CALCULATOR: PKR TO USD
     function calcPkrToUsd() {
       const pkrVal = document.getElementById('usd-pkr-input').value;
       if (pkrVal === '' || pkrVal === null) {
@@ -402,7 +399,6 @@
       document.getElementById('usd-res-output').value = formatSmartDecimal(usd);
     }
 
-    // TWO-WAY CALCULATOR: USD TO PKR
     function calcUsdToPkr() {
       const usdVal = document.getElementById('usd-res-output').value;
       if (usdVal === '' || usdVal === null) {
@@ -463,7 +459,6 @@
       if (currentAcc && currentAcc.name) {
         const accClean = cleanStr(currentAcc.name);
         
-        // STRICT MATCH FOR "Mughees Editing" OR "Mugees Editing"
         if (accClean === 'mughees editing' || accClean === 'mugees editing') {
           return [
             'Date To Date Earning',
@@ -475,7 +470,6 @@
           ];
         }
 
-        // STRICT MATCH ONLY FOR "Rumi Editing" / "Rummi Editing"
         if (accClean === 'rumi editing' || accClean === 'rummi editing') {
           return [
             'Date To Date Earning',
@@ -490,7 +484,6 @@
         }
       }
 
-      // ALL OTHER ACCOUNTS (Including "Its Rumi", "Mughees Editx", etc.)
       return standardStatuses;
     }
 
@@ -939,7 +932,7 @@
 
       document.getElementById('bottom-total-val').innerText = totalStr;
 
-      // CUSTOM BANNERS (FOR PERSONAL KHATA & REMAINING USD / 10% CUT / PKR RECEIVED)
+      // FIXED BANNER SYSTEM: INDEPENDENT DISPLAY FOR UDHAR, PAID & ADVANCE
       if (isPersonalCompany() && netBanner) {
         let totalBorrowed = 0;
         let totalPaidBack = 0;
@@ -957,22 +950,14 @@
           }
         });
 
-        const pendingToPay = totalBorrowed - totalPaidBack;
-
         netBanner.style.display = 'block';
 
-        if (selectedBottomTab === 'Paid') {
-          netBanner.style.background = '#143820';
-          netBanner.style.border = '1px solid #22c55e';
-          netBanner.style.color = '#22c55e';
-          netBanner.innerHTML = `✅ Aap ab tak Total <strong>PKR ${formatNum(totalPaidBack)}</strong> pay kar chuke hain.`;
-        } 
-        else if (selectedBottomTab === 'Udhar') {
-          if (pendingToPay > 0) {
+        if (selectedBottomTab === 'Udhar') {
+          if (totalBorrowed > 0) {
             netBanner.style.background = '#451a03';
             netBanner.style.border = '1px solid #ef4444';
             netBanner.style.color = '#ef4444';
-            netBanner.innerHTML = `⚠️ Total Udhar PKR ${formatNum(totalBorrowed)} mein se aap ne abhi <strong>PKR ${formatNum(pendingToPay)}</strong> dene hain (Pending Balance)`;
+            netBanner.innerHTML = `⚠️ Total Udhar: <strong>PKR ${formatNum(totalBorrowed)}</strong> (Dene Baaki Hain)`;
           } else {
             netBanner.style.background = '#1e3a8a';
             netBanner.style.border = '1px solid #3b82f6';
@@ -980,11 +965,17 @@
             netBanner.innerHTML = `🎉 Udhar Bilkul Clear Hai! (0 PKR Remaining)`;
           }
         } 
+        else if (selectedBottomTab === 'Paid') {
+          netBanner.style.background = '#143820';
+          netBanner.style.border = '1px solid #22c55e';
+          netBanner.style.color = '#22c55e';
+          netBanner.innerHTML = `✅ Total Paid Amount: <strong>PKR ${formatNum(totalPaidBack)}</strong>`;
+        } 
         else if (selectedBottomTab === 'Advance') {
           netBanner.style.background = '#1e3a8a';
           netBanner.style.border = '1px solid #3b82f6';
           netBanner.style.color = '#38bdf8';
-          netBanner.innerHTML = `ℹ️ Advance / Extra Balance: <strong>PKR ${formatNum(totalAdvance)}</strong>`;
+          netBanner.innerHTML = `ℹ️ Total Advance / Extra Balance: <strong>PKR ${formatNum(totalAdvance)}</strong>`;
         }
       } 
       else if (selectedBottomTab === 'Remaining USD ($)' && netBanner) {
