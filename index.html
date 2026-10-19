@@ -479,7 +479,8 @@
             'Send Transaction',
             'Remaining USD ($)',
             'PKR Received',
-            '10% Cut'
+            '10% Cut',
+            'Extra Cut'
           ];
         }
       }
@@ -764,36 +765,37 @@
       const filtered = getFilteredAccounts();
       const nextOrder = filtered.length > 0 
         ? Math.max(...filtered.map((a, i) => (a.order !== undefined ? a.order : i))) + 1 
-        : 1;
+        : 0;
 
       db.collection("accounts").add({
-        companyDocId: selectedCompanyDocId,
         name: name,
         dashboardName: dashName,
-        startDate: dateVal ? dateVal : "",
+        startDate: dateVal,
+        companyDocId: selectedCompanyDocId,
         order: nextOrder,
         createdAt: Date.now()
+      }).then(() => {
+        document.getElementById('new-acc-name').value = '';
+        document.getElementById('new-acc-dash-name').value = '';
+        document.getElementById('new-acc-date').value = '';
       });
-
-      document.getElementById('new-acc-name').value = '';
-      document.getElementById('new-acc-dash-name').value = '';
-      document.getElementById('new-acc-date').value = '';
     }
 
     function renderFormStatusButtons() {
       const container = document.getElementById('status-buttons-container');
       container.innerHTML = '';
+      const statuses = getActiveStatuses();
 
-      const activeStatuses = getActiveStatuses();
-
-      if (!activeStatuses.includes(currentStatus)) {
-        currentStatus = activeStatuses[0];
+      if (!statuses.includes(currentStatus)) {
+        currentStatus = statuses[0] || '';
       }
 
-      activeStatuses.forEach(st => {
-        const btn = document.createElement('button');
-        const isSpecial = st === 'Udhar' || st === 'Paid' || st === 'Advance' || st === 'Remaining USD ($)' || st === '10% Cut' || st === 'PKR Received' || st === 'Ad Spend' || st === 'PayPal Received ($)' || st === 'Binance Payment' || st === 'My Payment';
-        btn.className = `status-btn ${isSpecial ? 'special' : ''} ${st === currentStatus ? 'active' : ''}`;
+      statuses.forEach(st => {
+        const btn = document.createElement('div');
+        btn.className = `status-btn ${st === currentStatus ? 'active' : ''}`;
+        if (['Send Transaction', 'Binance Payment', 'My Payment', 'PayPal Received ($)', 'PKR Received', 'Ad Spend', 'Udhar', 'Paid', 'Advance', 'Extra Cut'].includes(st)) {
+          btn.classList.add('special');
+        }
         btn.innerText = st;
         btn.onclick = () => {
           currentStatus = st;
@@ -801,266 +803,184 @@
         };
         container.appendChild(btn);
       });
-
-      renderBottomTabs();
     }
 
-    function renderBottomTabs() {
-      const container = document.getElementById('bottom-tabs-container');
-      container.innerHTML = '';
-
-      const activeStatuses = getActiveStatuses();
-
-      if (!activeStatuses.includes(selectedBottomTab)) {
-        selectedBottomTab = activeStatuses[0];
+    function isEntryForAccount(entry, acc) {
+      if (!entry || !acc) return false;
+      if (entry.accountDocId && acc.docId) {
+        return entry.accountDocId === acc.docId;
       }
-
-      activeStatuses.forEach(t => {
-        const tab = document.createElement('div');
-        tab.className = `b-tab ${t === selectedBottomTab ? 'active' : ''}`;
-        tab.innerText = t;
-        tab.onclick = () => {
-          selectedBottomTab = t;
-          renderBottomTabs();
-          renderBottomBreakdown();
-        };
-        container.appendChild(tab);
-      });
-    }
-
-    function isEntryForAccount(e, targetAcc) {
-      if (!targetAcc) return false;
-      const defaultCompId = companiesList[0] ? companiesList[0].docId : null;
-      
-      const entryCompanyId = e.companyDocId || defaultCompId;
-      const targetCompanyId = targetAcc.companyDocId || defaultCompId;
-
-      if (entryCompanyId !== targetCompanyId) {
-        return false;
-      }
-
-      if (e.accountDocId) {
-        return e.accountDocId === targetAcc.docId;
-      }
-
-      return cleanStr(e.account) === cleanStr(targetAcc.name);
-    }
-
-    function renderBottomBreakdown() {
-      const filteredAccounts = getFilteredAccounts();
-      const currentAcc = filteredAccounts[selectedAccountIndex];
-
-      const netBanner = document.getElementById('personal-net-banner');
-
-      if (!currentAcc) {
-        document.getElementById('selected-acc-heading').innerText = "No Account Selected";
-        document.getElementById('bottom-entries-list').innerHTML = '';
-        document.getElementById('bottom-total-val').innerText = '0';
-        if (netBanner) netBanner.style.display = 'none';
-        return;
-      }
-
-      document.getElementById('selected-acc-heading').innerText = `${currentAcc.name} — ${selectedBottomTab} Breakdown`;
-
-      const container = document.getElementById('bottom-entries-list');
-      container.innerHTML = '';
-
-      const accEntries = entries.filter(e => isEntryForAccount(e, currentAcc));
-      
-      let targetStatus = selectedBottomTab;
-      
-      const filtered = accEntries.filter(e => {
-        const s = cleanStr(e.status);
-        const target = cleanStr(targetStatus);
-        
-        if (target === 'udhar') {
-          return s === 'udhar' || s.includes('borrowed') || s.includes('taken');
-        }
-        if (target === 'paid') {
-          return s === 'paid' || s.includes('paid back') || s.includes('returned');
-        }
-        if (target === 'advance') {
-          return s === 'advance' || s.includes('given');
-        }
-        return s === target;
-      });
-
-      filtered.sort((a, b) => {
-        const dateA = a.date || '0000-00-00';
-        const dateB = b.date || '0000-00-00';
-        if (dateA !== dateB) return dateB.localeCompare(dateA);
-        
-        const timeA = a.time || '00:00';
-        const timeB = b.time || '00:00';
-        if (timeA !== timeB) return timeB.localeCompare(timeA);
-        
-        return (b.createdAt || 0) - (a.createdAt || 0);
-      });
-
-      const totalsByCurr = {};
-
-      filtered.forEach(e => {
-        const curr = e.currency || 'PKR';
-        totalsByCurr[curr] = (totalsByCurr[curr] || 0) + parseFloat(e.amount || 0);
-        
-        const symbol = getCurrencySymbol(curr);
-        
-        let dateTimeDisplay = '';
-        if (e.date) dateTimeDisplay += formatDateDisplay(e.date) + ' ';
-        if (e.time) dateTimeDisplay += formatTime12Hour(e.time);
-
-        const item = document.createElement('div');
-        item.className = 'entry-item';
-        item.innerHTML = `
-          <div class="entry-left">
-            ${dateTimeDisplay ? `<span style="color:#38bdf8; font-weight:bold;">${dateTimeDisplay}</span>` : ''}
-            <span class="entry-badge">${e.status}</span>
-            <span>${e.note || ''}</span>
-          </div>
-          <div>
-            <strong style="margin-right: 12px;">${symbol} ${formatNum(e.amount)}</strong>
-            <button onclick="removeEntry('${e.docId}')" style="color:var(--danger-color); background:none; border:none; cursor:pointer;">Remove</button>
-          </div>
-        `;
-        container.appendChild(item);
-      });
-
-      const totalKeys = Object.keys(totalsByCurr);
-      let totalStr = totalKeys.map(c => `${getCurrencySymbol(c)} ${formatNum(totalsByCurr[c])}`).join(' | ');
-
-      if (totalKeys.length === 0) totalStr = '0';
-
-      document.getElementById('bottom-total-val').innerText = totalStr;
-
-      // FIXED BANNER SYSTEM: INDEPENDENT DISPLAY FOR UDHAR, PAID & ADVANCE
-      if (isPersonalCompany() && netBanner) {
-        let totalBorrowed = 0;
-        let totalPaidBack = 0;
-        let totalAdvance = 0;
-
-        accEntries.forEach(e => {
-          const s = cleanStr(e.status);
-          const amt = parseFloat(e.amount) || 0;
-          if (s === 'udhar' || s.includes('borrowed') || s.includes('taken')) {
-            totalBorrowed += amt;
-          } else if (s === 'paid' || s.includes('paid back') || s.includes('returned')) {
-            totalPaidBack += amt;
-          } else if (s === 'advance' || s.includes('given')) {
-            totalAdvance += amt;
-          }
-        });
-
-        netBanner.style.display = 'block';
-
-        if (selectedBottomTab === 'Udhar') {
-          if (totalBorrowed > 0) {
-            netBanner.style.background = '#451a03';
-            netBanner.style.border = '1px solid #ef4444';
-            netBanner.style.color = '#ef4444';
-            netBanner.innerHTML = `⚠️ Total Udhar: <strong>PKR ${formatNum(totalBorrowed)}</strong> (Dene Baaki Hain)`;
-          } else {
-            netBanner.style.background = '#1e3a8a';
-            netBanner.style.border = '1px solid #3b82f6';
-            netBanner.style.color = '#38bdf8';
-            netBanner.innerHTML = `🎉 Udhar Bilkul Clear Hai! (0 PKR Remaining)`;
-          }
-        } 
-        else if (selectedBottomTab === 'Paid') {
-          netBanner.style.background = '#143820';
-          netBanner.style.border = '1px solid #22c55e';
-          netBanner.style.color = '#22c55e';
-          netBanner.innerHTML = `✅ Total Paid Amount: <strong>PKR ${formatNum(totalPaidBack)}</strong>`;
-        } 
-        else if (selectedBottomTab === 'Advance') {
-          netBanner.style.background = '#1e3a8a';
-          netBanner.style.border = '1px solid #3b82f6';
-          netBanner.style.color = '#38bdf8';
-          netBanner.innerHTML = `ℹ️ Total Advance / Extra Balance: <strong>PKR ${formatNum(totalAdvance)}</strong>`;
-        }
-      } 
-      else if (selectedBottomTab === 'Remaining USD ($)' && netBanner) {
-        netBanner.style.display = 'block';
-        netBanner.style.background = '#1b2838';
-        netBanner.style.border = '1px solid #38bdf8';
-        netBanner.style.color = '#38bdf8';
-        netBanner.innerHTML = `💵 Total Pending Balance: <strong>$ ${formatNum(totalsByCurr['USD'] || 0)}</strong> (Real Payment Remaining)`;
-      }
-      else if (selectedBottomTab === '10% Cut' && netBanner) {
-        netBanner.style.display = 'block';
-        netBanner.style.background = '#143820';
-        netBanner.style.border = '1px solid #22c55e';
-        netBanner.style.color = '#22c55e';
-        netBanner.innerHTML = `✂️ Total 10% Cut Deduction: <strong>PKR ${formatNum(totalsByCurr['PKR'] || totalsByCurr['USD'] || 0)}</strong>`;
-      }
-      else if (selectedBottomTab === 'PKR Received' && netBanner) {
-        netBanner.style.display = 'block';
-        netBanner.style.background = '#1e3a8a';
-        netBanner.style.border = '1px solid #3b82f6';
-        netBanner.style.color = '#38bdf8';
-        netBanner.innerHTML = `💰 Total PKR Received (Withdrawals): <strong>PKR ${formatNum(totalsByCurr['PKR'] || 0)}</strong>`;
-      }
-      else if (netBanner) {
-        netBanner.style.display = 'none';
-      }
+      return cleanStr(entry.account) === cleanStr(acc.name);
     }
 
     function addEntry() {
-      const amountInput = document.getElementById('amount').value;
+      const amountVal = parseFloat(document.getElementById('amount').value);
+      if (isNaN(amountVal) || amountVal === 0) {
+        alert("کوئی درست رقم (Amount) درج کریں!");
+        return;
+      }
+
       const currency = document.getElementById('currency').value;
-      
-      const filtered = getFilteredAccounts();
-      const selectElem = document.getElementById('account-select');
-      const selectedIdx = selectElem ? selectElem.selectedIndex : selectedAccountIndex;
-      const currentAcc = filtered[selectedIdx] || filtered[selectedAccountIndex];
-
-      const showDate = document.getElementById('chk-show-date').checked;
-      const showTime = document.getElementById('chk-show-time').checked;
-
-      const dateVal = showDate ? document.getElementById('entry-date').value : '';
-      const timeVal = showTime ? document.getElementById('entry-time').value : '';
+      const accountName = document.getElementById('account-select').value;
+      const entryDate = document.getElementById('entry-date').value;
+      const entryTime = document.getElementById('entry-time').value;
       const note = document.getElementById('note').value.trim();
 
-      if (!currentAcc) { alert('پہلے کوئی اکاؤنٹ یا کمپنی سلیکٹ کریں!'); return; }
-
-      const rawAmount = amountInput ? amountInput.trim() : '0';
+      const filteredAccounts = getFilteredAccounts();
+      const currentAcc = filteredAccounts[selectedAccountIndex];
+      const accountDocId = currentAcc ? currentAcc.docId : null;
 
       db.collection("payments").add({
-        amount: rawAmount,
+        amount: amountVal,
         currency: currency,
-        account: currentAcc.name,
-        accountDocId: currentAcc.docId,
+        account: accountName,
+        accountDocId: accountDocId,
         companyDocId: selectedCompanyDocId,
-        date: dateVal,
-        time: timeVal,
+        date: entryDate,
+        time: entryTime,
         note: note,
         status: currentStatus,
         createdAt: Date.now()
       }).then(() => {
         document.getElementById('amount').value = '0';
         document.getElementById('note').value = '';
-      }).catch(err => {
-        console.error("Error adding entry: ", err);
-        alert("Entry add karne mein masla aaya!");
       });
     }
 
-    function removeEntry(docId) {
-      if (confirm('کیا آپ اس اینٹری کو ڈیلیٹ کرنا چاہتے ہیں؟')) {
-        db.collection("payments").doc(docId).delete().catch(err => {
-          console.error("Error deleting entry: ", err);
-        });
+    function deleteEntry(docId) {
+      if (confirm("کیا آپ اس انٹری کو ڈیلیٹ کرنا چاہتے ہیں؟")) {
+        db.collection("payments").doc(docId).delete();
       }
     }
 
-    function exportData() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ companies: companiesList, accounts: accountsList, entries: entries }, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `ledger_backup_${new Date().toISOString().slice(0, 10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+    function renderBottomBreakdown() {
+      const filteredAccounts = getFilteredAccounts();
+      const currentAcc = filteredAccounts[selectedAccountIndex];
+
+      const headingEl = document.getElementById('selected-acc-heading');
+      if (currentAcc) {
+        headingEl.innerText = `Account Breakdown: ${currentAcc.name}`;
+      } else {
+        headingEl.innerText = `Account Category Breakdown`;
+      }
+
+      const tabsContainer = document.getElementById('bottom-tabs-container');
+      tabsContainer.innerHTML = '';
+
+      const statuses = getActiveStatuses();
+      if (!selectedBottomTab || !statuses.includes(selectedBottomTab)) {
+        selectedBottomTab = statuses[0] || '';
+      }
+
+      statuses.forEach(st => {
+        const tab = document.createElement('div');
+        tab.className = `b-tab ${st === selectedBottomTab ? 'active' : ''}`;
+        tab.innerText = st;
+        tab.onclick = () => {
+          selectedBottomTab = st;
+          renderBottomBreakdown();
+        };
+        tabsContainer.appendChild(tab);
+      });
+
+      const entriesList = document.getElementById('bottom-entries-list');
+      entriesList.innerHTML = '';
+
+      const currentComp = companiesList.find(c => c.docId === selectedCompanyDocId);
+      const isPersonal = isPersonalCompany();
+
+      let accEntries = entries.filter(e => {
+        if (currentAcc) {
+          return isEntryForAccount(e, currentAcc);
+        }
+        if (e.companyDocId) {
+          return e.companyDocId === selectedCompanyDocId;
+        }
+        return true;
+      });
+
+      let tabEntries = accEntries.filter(e => (e.status || standardStatuses[0]) === selectedBottomTab);
+
+      tabEntries.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      let totalsByCurr = {};
+
+      if (tabEntries.length === 0) {
+        entriesList.innerHTML = `<div style="font-size:12px; opacity:0.6; padding:12px 0; text-align:center;">اس سیکشن میں کوئی انٹری موجود نہیں ہے۔</div>`;
+      } else {
+        tabEntries.forEach(e => {
+          const curr = e.currency || 'PKR';
+          const amt = Number(e.amount) || 0;
+          totalsByCurr[curr] = (totalsByCurr[curr] || 0) + amt;
+
+          const item = document.createElement('div');
+          item.className = 'entry-item';
+
+          let dateDisplay = '';
+          if (e.date) {
+            dateDisplay = formatDateDisplay(e.date);
+            if (e.time) {
+              dateDisplay += ` | ${formatTime12Hour(e.time)}`;
+            }
+          }
+
+          item.innerHTML = `
+          <div>
+            <div class="entry-left">
+              <strong style="color: var(--accent-color); font-size: 13px;">${getCurrencySymbol(curr)} ${formatNum(amt)}</strong>
+              ${e.note ? `<span style="opacity:0.9;">— ${e.note}</span>` : ''}
+            </div>
+            ${dateDisplay ? `<div style="font-size:10px; opacity:0.6; margin-top:3px;">📅 ${dateDisplay}</div>` : ''}
+          </div>
+          <div>
+            <button onclick="deleteEntry('${e.docId}')" style="background:none; border:none; color:var(--danger-color); cursor:pointer; font-size:12px;" title="Delete">🗑️</button>
+          </div>
+        `;
+        entriesList.appendChild(item);
+      });
     }
+
+    const totalValEl = document.getElementById('bottom-total-val');
+    let totalStrParts = [];
+    for (let [curr, val] of Object.entries(totalsByCurr)) {
+      totalStrParts.push(`${getCurrencySymbol(curr)} ${formatNum(val)}`);
+    }
+    totalValEl.innerText = totalStrParts.length > 0 ? totalStrParts.join(' | ') : '0';
+
+    const netBanner = document.getElementById('personal-net-banner');
+    if (isPersonal) {
+      let udharTotal = 0;
+      let paidTotal = 0;
+      let advanceTotal = 0;
+
+      accEntries.forEach(e => {
+        const st = e.status;
+        const amt = Number(e.amount) || 0;
+        if (st === 'Udhar') udharTotal += amt;
+        if (st === 'Paid') paidTotal += amt;
+        if (st === 'Advance') advanceTotal += amt;
+      });
+
+      const netBalance = udharTotal - paidTotal - advanceTotal;
+      netBanner.style.display = 'block';
+      netBanner.className = `net-hisab-banner ${netBalance >= 0 ? '' : ''}`;
+      netBanner.style.backgroundColor = netBalance >= 0 ? 'var(--accent-bg)' : '#450a0a';
+      netBanner.style.color = netBalance >= 0 ? 'var(--accent-color)' : '#fca5a5';
+      netBanner.innerHTML = `Net Hisab: PKR ${formatNum(netBalance)} ${netBalance >= 0 ? '(Lena Hai)' : '(Dena Hai)'}`;
+    } else {
+      netBanner.style.display = 'none';
+    }
+  }
+
+  function exportData() {
+    const data = { companies: companiesList, accounts: accountsList, entries: entries };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payment_Ledger_Backup_${new Date().toISOString().substring(0, 10)}.json`;
+    a.click();
+  }
   </script>
 </body>
 </html>
