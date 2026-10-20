@@ -961,12 +961,26 @@
         if (st === 'Advance') advanceTotal += amt;
       });
 
-      const netBalance = udharTotal - paidTotal - advanceTotal;
+      // صرف ادھار اور ایڈوانس کا نیٹ حساب ہوگا، پیڈ کا اس میں مائنس یا گڑبڑ نہیں ہوگی
+      const netBalance = udharTotal - advanceTotal;
       netBanner.style.display = 'block';
-      netBanner.className = `net-hisab-banner ${netBalance >= 0 ? '' : ''}`;
-      netBanner.style.backgroundColor = netBalance >= 0 ? '#450a0a' : 'var(--accent-bg)';
-      netBanner.style.color = netBalance >= 0 ? '#fca5a5' : 'var(--accent-color)';
-      netBanner.innerHTML = `Net Hisab: PKR ${formatNum(netBalance)} ${netBalance >= 0 ? '(Dena Hai)' : '(Lena Hai)'}`;
+      netBanner.className = `net-hisab-banner`;
+      
+      if (netBalance > 0) {
+        // ادھار زیادہ ہے یعنی دینا ہے
+        netBanner.style.backgroundColor = '#450a0a';
+        netBanner.style.color = '#fca5a5';
+        netBanner.innerHTML = `Net Hisab: PKR ${formatNum(netBalance)} (Dena Hai)`;
+      } else if (netBalance < 0) {
+        // ایڈوانس زیادہ ہے یعنی لینا ہے
+        netBanner.style.backgroundColor = 'var(--accent-bg)';
+        netBanner.style.color = 'var(--accent-color)';
+        netBanner.innerHTML = `Net Hisab: PKR ${formatNum(Math.abs(netBalance))} (Lena Hai)`;
+      } else {
+        netBanner.style.backgroundColor = 'var(--input-bg)';
+        netBanner.style.color = 'var(--text-color)';
+        netBanner.innerHTML = `Net Hisab: PKR 0 (Clear)`;
+      }
     } else {
       netBanner.style.display = 'none';
     }
