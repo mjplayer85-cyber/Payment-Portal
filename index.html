@@ -189,7 +189,7 @@
   <div class="start-date-box">
     <div style="font-size: 13px; font-weight: bold; color: var(--accent-color); margin-bottom: 8px;">
       👤 2. Accounts Under <span id="current-company-label" style="color: #38bdf8;">Loading...</span>
-  </div>
+    </div>
     <div class="start-date-grid" id="accounts-container"></div>
 
     <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -964,9 +964,9 @@
       const netBalance = udharTotal - paidTotal - advanceTotal;
       netBanner.style.display = 'block';
       netBanner.className = `net-hisab-banner ${netBalance >= 0 ? '' : ''}`;
-      netBanner.style.backgroundColor = netBalance >= 0 ? 'var(--accent-bg)' : '#450a0a';
-      netBanner.style.color = netBalance >= 0 ? 'var(--accent-color)' : '#fca5a5';
-      netBanner.innerHTML = `Net Hisab: PKR ${formatNum(netBalance)} ${netBalance >= 0 ? '(Lena Hai)' : '(Dena Hai)'}`;
+      netBanner.style.backgroundColor = netBalance >= 0 ? '#450a0a' : 'var(--accent-bg)';
+      netBanner.style.color = netBalance >= 0 ? '#fca5a5' : 'var(--accent-color)';
+      netBanner.innerHTML = `Net Hisab: PKR ${formatNum(netBalance)} ${netBalance >= 0 ? '(Dena Hai)' : '(Lena Hai)'}`;
     } else {
       netBanner.style.display = 'none';
     }
