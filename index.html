@@ -822,8 +822,14 @@
 
       const currency = document.getElementById('currency').value;
       const accountName = document.getElementById('account-select').value;
-      const entryDate = document.getElementById('entry-date').value;
-      const entryTime = document.getElementById('entry-time').value;
+      
+      // صرف اس وقت تاریخ اور وقت اٹھاؤ جب ان کے چیک باکس آن (Checked) ہوں
+      const showDate = document.getElementById('chk-show-date').checked;
+      const showTime = document.getElementById('chk-show-time').checked;
+      
+      const entryDate = showDate ? document.getElementById('entry-date').value : '';
+      const entryTime = showTime ? document.getElementById('entry-time').value : '';
+      
       const note = document.getElementById('note').value.trim();
 
       const filteredAccounts = getFilteredAccounts();
@@ -917,11 +923,13 @@
           item.className = 'entry-item';
 
           let dateDisplay = '';
-          if (e.date) {
+          if (e.date && e.date.trim() !== '') {
             dateDisplay = formatDateDisplay(e.date);
-            if (e.time) {
+            if (e.time && e.time.trim() !== '') {
               dateDisplay += ` | ${formatTime12Hour(e.time)}`;
             }
+          } else if (e.time && e.time.trim() !== '') {
+            dateDisplay = formatTime12Hour(e.time);
           }
 
           item.innerHTML = `
@@ -961,18 +969,15 @@
         if (st === 'Advance') advanceTotal += amt;
       });
 
-      // صرف ادھار اور ایڈوانس کا نیٹ حساب ہوگا، پیڈ کا اس میں مائنس یا گڑبڑ نہیں ہوگی
       const netBalance = udharTotal - advanceTotal;
       netBanner.style.display = 'block';
       netBanner.className = `net-hisab-banner`;
       
       if (netBalance > 0) {
-        // ادھار زیادہ ہے یعنی دینا ہے
         netBanner.style.backgroundColor = '#450a0a';
         netBanner.style.color = '#fca5a5';
         netBanner.innerHTML = `Net Hisab: PKR ${formatNum(netBalance)} (Dena Hai)`;
       } else if (netBalance < 0) {
-        // ایڈوانس زیادہ ہے یعنی لینا ہے
         netBanner.style.backgroundColor = 'var(--accent-bg)';
         netBanner.style.color = 'var(--accent-color)';
         netBanner.innerHTML = `Net Hisab: PKR ${formatNum(Math.abs(netBalance))} (Lena Hai)`;
